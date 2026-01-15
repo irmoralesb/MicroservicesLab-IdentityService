@@ -1,0 +1,15 @@
+# FastAPI dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0.45
+pyodbc>=5.3.0
+
+# Prometheus metrics for monitoring
+prometheus-client>=0.19.0
+prometheus-fastapi-instrumentator>=6.1.0
