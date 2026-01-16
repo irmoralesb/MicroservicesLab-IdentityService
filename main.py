@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from routers import auth
+
 load_dotenv()
 
 # Configure logging from environment (default INFO)
@@ -62,9 +64,14 @@ if METRICS_ENABLED:
 else:
     logger.info("Prometheus metrics disabled")
 
+
+app.include_router(auth.router)
+
 @app.get("/")
 async def root():
     """
     Root endpoint
     """
     return {"message":"Contact your Administrator to get access to the system"}
+
+
