@@ -13,7 +13,7 @@ class UserDataModel(Base):
     first_name: Mapped[str] = mapped_column(String(50), nullable=False)
     middle_name: Mapped[str] = mapped_column(String(50), nullable=True)
     last_name: Mapped[str] = mapped_column(String(50), nullable=False)
-    email: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(100), index=True, nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
@@ -26,21 +26,22 @@ class UserDataModel(Base):
 
 
 class RolesDataModel(Base):
-    __tablename__= "roles"
+    __tablename__ = "roles"
     id: Mapped[uuid.UUID] = mapped_column(
         String(36), default=uuid.uuid4,
         primary_key=True, index=False)
-    name: Mapped[str]=mapped_column(String(30), nullable=False)
-    description: Mapped[str]=mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(30), nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+
 
 class PermissionsDataModel(Base):
     __tablename__ = "permissions"
     id: Mapped[uuid.UUID] = mapped_column(
         String(36), default=uuid.uuid4,
         primary_key=True, index=False)
-    name: Mapped[str]=mapped_column(String(30), nullable=False)
-    resource: Mapped[str]=mapped_column(String(30), nullable=False)
-    action: Mapped[str]=mapped_column(String(30), nullable=False)
+    name: Mapped[str] = mapped_column(String(30), nullable=False)
+    resource: Mapped[str] = mapped_column(String(30), nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
 
 
 class UserRolesDataModel(Base):
@@ -52,8 +53,17 @@ class UserRolesDataModel(Base):
         String(36), ForeignKey("users.id"), nullable=False)
     role_id: Mapped[uuid.UUID] = mapped_column(
         String(36), ForeignKey("roles.id"), nullable=False)
-    permission_id: Mapped[uuid.UUID] =mapped_column(
-        String(36), ForeignKey("permissions.id"), nullable= False)
+
+
+class RolePermissionsDataModel(Base):
+    __tablename__ = "role_permissions"
+    id: Mapped[uuid.UUID] = mapped_column(
+        String(36), default=uuid.uuid4,
+        primary_key=True, index=False)
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        String(36), ForeignKey("roles.id"), nullable=False)
+    permission_id: Mapped[uuid.UUID] = mapped_column(
+        String(36), ForeignKey("permissions.id"), nullable=False)
 
 
 class UserPermissionsDataModel(Base):
@@ -74,7 +84,8 @@ class RefreshTokensDataModel(Base):
         primary_key=True, index=False)
     user_id: Mapped[uuid.UUID] = mapped_column(
         String(36), ForeignKey("users.id"), nullable=False)
-    token_hashed: Mapped[str]= mapped_column(String)
+    token_hashed: Mapped[str] = mapped_column(String)
     expires_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, nullable=False)
-    revoked: Mapped[bool]= mapped_column(Boolean, nullable=False, default=False)
+    revoked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False)
