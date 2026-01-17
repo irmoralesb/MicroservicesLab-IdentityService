@@ -1,4 +1,4 @@
-#from monitoring.metrics import database_connections_activating, database_connections_deactivating
+from monitoring.metrics import database_connections_activating, database_connections_deactivating
 from contextlib import contextmanager
 import os
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
@@ -41,27 +41,25 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-# TODO Code to be used when the monitoring service is setup 
+@contextmanager
+def get_monitored_db_session():
+    """
+    Context manager for database sessions with connection monitoring.
+    Usage in routers:
 
-# @contextmanager
-# def get_monitored_db_session():
-#     """
-#     Context manager for database sessions with connection monitoring.
-#     Usage in routers:
-
-#     def get_db():
-#         with get_monitored_db_session() as db:
-#             yield db
-#     """
-#     database_connections_activating()
-#     session = SessionLocal()
-#     try:
-#         yield session
-#         if session.new or session.dirty or session.deleted:
-#             session.commit()
-#     except Exception:
-#         session.rollback()
-#         raise
-#     finally:
-#         session.close()
-#         database_connections_deactivating()
+    def get_db():
+        with get_monitored_db_session() as db:
+            yield db
+    """
+    database_connections_activating()
+    session = SessionLocal()
+    try:
+        yield session
+        if session.new or session.dirty or session.deleted:
+            session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+        database_connections_deactivating()

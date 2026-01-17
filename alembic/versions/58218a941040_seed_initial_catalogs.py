@@ -1,7 +1,7 @@
 """seed_initial_catalogs
 
 Revision ID: 58218a941040
-Revises: c32e96993dd9
+Revises: f104c7db02c1
 Create Date: 2026-01-16 22:34:12.576242
 
 """
@@ -9,11 +9,12 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from datetime import datetime
 import uuid
 
 # revision identifiers, used by Alembic.
 revision: str = '58218a941040'
-down_revision: Union[str, Sequence[str], None] = 'c32e96993dd9'
+down_revision: Union[str, Sequence[str], None] = 'f104c7db02c1'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -43,16 +44,26 @@ def upgrade() -> None:
         sa.column('permission_id', sa.String(36))
     )
     
+    users_table = sa.table(
+        'users',
+        sa.column('id', sa.String(36)),
+        sa.column('username', sa.String(50)),
+        sa.column('email', sa.String(100)),
+        sa.column('password_hash', sa.String(255)),
+        sa.column('is_active', sa.Boolean),
+        sa.column('created_at', sa.DateTime)
+    )
+    
+    user_roles_table = sa.table(
+        'user_roles',
+        sa.column('id', sa.String(36)),
+        sa.column('user_id', sa.String(36)),
+        sa.column('role_id', sa.String(36))
+    )
 
     # Generate UUIDs for roles
     admin_role_id = str(uuid.uuid4())
     user_role_id = str(uuid.uuid4())
-    
-    # Check if roles already exist
-    conn = op.get_bind()
-    result = conn.execute(sa.text("SELECT COUNT(*) FROM roles WHERE name IN ('Admin', 'User')"))
-    if (result.scalar() or 0) > 0:
-        return  # Data already seeded
     
     # Insert roles
     op.bulk_insert(
@@ -155,11 +166,42 @@ def upgrade() -> None:
     op.bulk_insert(role_permissions_table, admin_role_permissions)
     op.bulk_insert(role_permissions_table, user_role_permissions)
     
+    # Generate UUID for admin user
+    admin_user_id = str(uuid.uuid4())
+    
+    # Insert admin user
+    op.bulk_insert(
+        users_table,
+        [
+            {
+                'id': admin_user_id,
+                'username': 'admin',
+                'email': 'admin@example.com',
+                'password_hash': '$2b$12$placeholder',  # Replace with actual hashed password
+                'is_active': True,
+                'created_at': datetime.utcnow()
+            }
+        ]
+    )
+    
+    # Assign Admin role to admin user
+    op.bulk_insert(
+        user_roles_table,
+        [
+            {
+                'id': str(uuid.uuid4()),
+                'user_id': admin_user_id,
+                'role_id': admin_role_id
+            }
+        ]
+    )
 
 
 def downgrade() -> None:
     """Downgrade schema - remove seed data."""
     # Delete in reverse order due to foreign key constraints
+    op.execute("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username = 'admin')")
     op.execute("DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE name IN ('Admin', 'User'))")
     op.execute("DELETE FROM permissions WHERE resource IN ('users', 'roles', 'permissions', 'profile')")
     op.execute("DELETE FROM roles WHERE name IN ('Admin', 'User')")
+    op.execute("DELETE FROM users WHERE username = 'admin'")
