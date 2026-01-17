@@ -1,10 +1,11 @@
 from monitoring.metrics import database_connections_activating, database_connections_deactivating
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 import os
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+# from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
@@ -28,7 +29,7 @@ if 'LongAsMax' not in query_params:
 parsed = parsed._replace(query=urlencode(query_params, doseq=True))
 IDENTITY_DATABASE_URL = urlunparse(parsed)
 
-engine = create_engine(
+engine = create_async_engine(
     IDENTITY_DATABASE_URL,
     pool_pre_ping=True,
     connect_args={
@@ -38,11 +39,13 @@ engine = create_engine(
     use_setinputsizes=False
 )
 
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine, expire_on_commit=False, autocommit=False, autoflush=False, class_=AsyncSession)
 Base = declarative_base()
 
-@contextmanager
-def get_monitored_db_session():
+
+@asynccontextmanager
+async def get_monitored_db_session():
     """
     Context manager for database sessions with connection monitoring.
     Usage in routers:
@@ -52,14 +55,14 @@ def get_monitored_db_session():
             yield db
     """
     database_connections_activating()
-    session = SessionLocal()
+    session = AsyncSessionLocal()
     try:
         yield session
         if session.new or session.dirty or session.deleted:
-            session.commit()
+            await session.commit()
     except Exception:
-        session.rollback()
+        await session.rollback()
         raise
     finally:
-        session.close()
+        await session.close()
         database_connections_deactivating()

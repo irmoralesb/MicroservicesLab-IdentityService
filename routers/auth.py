@@ -3,14 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import auth_schemas as schema
 from databases.models import UserDataModel
 from databases.database import get_monitored_db_session
+from typing import AsyncIterator
 
 router = APIRouter(
     prefix='/api/v1/auth',
     tags=["auth"]
 )
 
-def get_db():
-    with get_monitored_db_session() as db:
+async def get_db()-> AsyncIterator[AsyncSession]:
+    async with get_monitored_db_session() as db:
         yield db
 
 @router.post("",status_code=status.HTTP_201_CREATED)
