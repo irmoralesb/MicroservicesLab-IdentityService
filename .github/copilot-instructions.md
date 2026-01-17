@@ -2,6 +2,7 @@
 
 ## General Guidelines
 - Always use the latest stable versions of packages and libraries
+  - Don't implement or recommend code that is deprecated in the latests versions, for instance: datetime.utcnow()
 - Follow industry best practices and coding standards
 - Include comprehensive type hints and proper documentation
 - Prioritize code readability and maintainability
