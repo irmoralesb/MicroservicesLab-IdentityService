@@ -1,34 +1,65 @@
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from . import auth_schemas as schema
 from databases.models import UserDataModel
 from databases.database import get_monitored_db_session
 from typing import AsyncIterator
+from passlib.context import CryptContext
 
 router = APIRouter(
     prefix='/api/v1/auth',
     tags=["auth"]
 )
 
-async def get_db()-> AsyncIterator[AsyncSession]:
+_bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+
+async def get_db() -> AsyncIterator[AsyncSession]:
+    """Dependency to provide db context."""
     async with get_monitored_db_session() as db:
         yield db
 
-@router.post("",status_code=status.HTTP_201_CREATED)
+
+def get_bcrypt_context() -> CryptContext:
+    """Dependency to provide bcrypt context for password hashing."""
+    return _bcrypt_context
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
-    create_user_request: schema.CreateUserRequest,
-    db: AsyncSession = Depends(get_db)) -> schema.UserResponse: 
+        create_user_request: schema.CreateUserRequest,
+        db: AsyncSession = Depends(get_db)) -> schema.UserResponse:
+    # Check if user with this email already exists
+    stmt = select(UserDataModel).where(UserDataModel.email == create_user_request.email)
+    result = await db.execute(stmt)
+    existing_user = result.scalars().first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email '{create_user_request.email}' already exists"
+        )
+
     create_user_model = UserDataModel(
-        first_name = create_user_request.first_name,
-        middle_name = create_user_request.middle_name,
-        last_name= create_user_request.last_name,
-        email = create_user_request.email,
-        hashed_password = ""
+        first_name=create_user_request.first_name,
+        middle_name=create_user_request.middle_name,
+        last_name=create_user_request.last_name,
+        email=create_user_request.email,
+        hashed_password=_bcrypt_context.hash(create_user_request.password)
     )
 
-    db.add(create_user_model)
-    await db.commit()
-    await db.refresh(create_user_model)
+    try:
+        db.add(create_user_model)
+        await db.commit()
+        await db.refresh(create_user_model)
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists"
+        )
 
     user_response = schema.UserResponse(
         id=create_user_model.id,

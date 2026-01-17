@@ -2,6 +2,7 @@
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
+pydantic[email]==2.12.5
 
 # Environment variables
 python-dotenv>=1.0.0
@@ -11,6 +12,10 @@ sqlalchemy>=2.0.45
 pyodbc>=5.3.0
 aioodbc>=0.5.0
 alembic>=1.13.0
+
+# Hasing - Important to keep version consistency between these two
+passlib==1.7.4
+bcrypt==4.0.1
 
 # Prometheus metrics for monitoring
 prometheus-client>=0.19.0
