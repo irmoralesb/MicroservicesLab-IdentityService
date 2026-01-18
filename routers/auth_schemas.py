@@ -16,3 +16,8 @@ class UserResponse(BaseModel):
     middle_name: str = Field(max_length=50, default='')
     last_name: str = Field(..., max_length=50)
     email: EmailStr = Field(..., max_length=100)
+
+
+class TokenResponse(BaseModel):
+    access_token:str = Field(..., max_length=2000) # TODO: review this number
+    token_type:str = Field(...,max_length=10)

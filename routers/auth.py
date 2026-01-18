@@ -7,7 +7,11 @@ from . import auth_schemas as schema
 from databases.models import UserDataModel, RolesDataModel, UserRolesDataModel
 from databases.database import get_monitored_db_session
 from typing import AsyncIterator
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
+from jose import jwt
+import os
+import uuid
 
 router = APIRouter(
     prefix='/api/v1/auth',
@@ -15,6 +19,32 @@ router = APIRouter(
 )
 
 USER_ROLE_NAME = 'User'
+
+_secret_token_key: str | None = os.getenv("SECRET_TOKEN_KEY")
+if not _secret_token_key:
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="No Secret Token Key found."
+    )
+secret_token_key = _secret_token_key
+
+_auth_algorithm: str | None = os.getenv("AUTH_ALGORITHM")
+if not _auth_algorithm:
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="No Auth Algorithm specified"
+    )
+auth_algorithm: str = _auth_algorithm
+
+_token_time_delta_in_minutes = os.getenv("TOKEN_TIME_DELTA_IN_MINUTES", "0")
+if _token_time_delta_in_minutes == "0":
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Token time delta not specified"
+    )
+token_time_delta_in_minutes = timedelta(
+    minutes=int(_token_time_delta_in_minutes))
+
 
 _bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
@@ -30,18 +60,24 @@ def get_bcrypt_context() -> CryptContext:
     return _bcrypt_context
 
 
-async def authenticate_user(email: str, password: str, db: AsyncSession)-> bool:
+async def authenticate_user(email: str, password: str, db: AsyncSession) -> UserDataModel | None:
     """Checks if the user password matches the stored hashed password"""
-    select_user_stmt = select(UserDataModel).where(UserDataModel.email == email)
+    select_user_stmt = select(UserDataModel).where(
+        UserDataModel.email == email)
     result = await db.execute(select_user_stmt)
     user = result.scalars().first()
 
     if not user:
-        
-        return False
-    
-    return True if _bcrypt_context.verify(password, user.hashed_password) else False
+        return None
 
+    return user if _bcrypt_context.verify(password, user.hashed_password) else None
+
+
+def create_access_token(email: str, user_id: uuid.UUID, expires_delta: timedelta) -> str:
+    encode = {'sub': email, 'user_id': user_id}
+    expires = datetime.now(timezone.utc) + expires_delta
+    encode.update({'exp': expires})
+    return jwt.encode(encode, secret_token_key, algorithm=auth_algorithm)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -111,12 +147,18 @@ async def create_user(
     return user_response
 
 
-@router.post("/token")
+@router.post("/token", response_model=schema.TokenResponse)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
     user_authenticated = await authenticate_user(form_data.username, form_data.password, db)
-    return "Successful Authentication" if user_authenticated else "Failed Authentication"
+    if not user_authenticated:
+        return "Failed Authentication"
 
-
+    token = create_access_token(
+        email=user_authenticated.email,
+        user_id=user_authenticated.id,
+        expires_delta=token_time_delta_in_minutes)
+    
+    return {'access_token': token, 'token_type': 'bearer'}
