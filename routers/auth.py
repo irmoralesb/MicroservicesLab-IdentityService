@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -29,12 +30,27 @@ def get_bcrypt_context() -> CryptContext:
     return _bcrypt_context
 
 
+async def authenticate_user(email: str, password: str, db: AsyncSession)-> bool:
+    """Checks if the user password matches the stored hashed password"""
+    select_user_stmt = select(UserDataModel).where(UserDataModel.email == email)
+    result = await db.execute(select_user_stmt)
+    user = result.scalars().first()
+
+    if not user:
+        
+        return False
+    
+    return True if _bcrypt_context.verify(password, user.hashed_password) else False
+
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
         create_user_request: schema.CreateUserRequest,
         db: AsyncSession = Depends(get_db)) -> schema.UserResponse:
     # Check if user with this email already exists
-    check_user_email_stmt = select(UserDataModel).where(UserDataModel.email == create_user_request.email)
+    check_user_email_stmt = select(UserDataModel).where(
+        UserDataModel.email == create_user_request.email)
     result = await db.execute(check_user_email_stmt)
     existing_user = result.scalars().first()
 
@@ -45,7 +61,8 @@ async def create_user(
         )
 
     # Get the user role
-    role_info_stmt = select(RolesDataModel).where(RolesDataModel.name == USER_ROLE_NAME)
+    role_info_stmt = select(RolesDataModel).where(
+        RolesDataModel.name == USER_ROLE_NAME)
     result = await db.execute(role_info_stmt)
     user_role_info = result.scalars().first()
     if not user_role_info:
@@ -53,7 +70,6 @@ async def create_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Role {USER_ROLE_NAME} not defined."
         )
-    
 
     create_user_model = UserDataModel(
         first_name=create_user_request.first_name,
@@ -69,7 +85,7 @@ async def create_user(
         await db.refresh(create_user_model)
 
         user_role_model = UserRolesDataModel(
-            user_id = create_user_model.id,
+            user_id=create_user_model.id,
             role_id=user_role_info.id
         )
 
@@ -93,3 +109,14 @@ async def create_user(
     )
 
     return user_response
+
+
+@router.post("/token")
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    user_authenticated = await authenticate_user(form_data.username, form_data.password, db)
+    return "Successful Authentication" if user_authenticated else "Failed Authentication"
+
+
