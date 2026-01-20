@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
+from core.settings import app_settings
 import logging
-import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +11,7 @@ from routers import auth
 load_dotenv()
 
 # Configure logging from environment (default INFO)
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = app_settings.log_level
 logging.basicConfig(
     level=LOG_LEVEL,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -25,7 +25,7 @@ app = FastAPI(
 )
 
 # CORS configuration
-cors_origins = os.getenv("CORS_ALLOW_ORIGINS", "*")
+cors_origins = app_settings.cors_allow_origins
 origins = [origin.strip()
            for origin in cors_origins.split(",") if origin.strip()]
 
@@ -38,8 +38,8 @@ app.add_middleware(
 )
 
 # Prometheus metrics configuration
-METRICS_ENABLED = os.getenv("METRICS_ENABLED", "true").lower() == "true"
-METRICS_ENDPOINT = os.getenv("METRICS_ENDPOINT", "/metrics")
+METRICS_ENABLED = app_settings.metrics_enabled == "true"
+METRICS_ENDPOINT = app_settings.metrics_endpoint
 
 # Initialize Prometheus instrumentation with configuration
 # This automatically tracks HTTP requests, response times, and status codes

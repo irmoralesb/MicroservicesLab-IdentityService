@@ -1,21 +1,20 @@
 from monitoring.metrics import database_connections_activating, database_connections_deactivating
 from contextlib import asynccontextmanager
-import os
+from core.settings import app_settings
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from dotenv import load_dotenv
-# from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
-IDENTITY_DATABASE_URL = os.getenv("IDENTITY_DATABASE_URL")
+IDENTITY_DATABASE_URL = app_settings.identity_database_url
 if not IDENTITY_DATABASE_URL:
     raise RuntimeError(
         "IDENTITY_DATABASE_URL environment variable is required")
 
-IDENTITY_DATABASE_MIGRATION_URL = os.getenv("IDENTITY_DATABASE_MIGRATION_URL")
+IDENTITY_DATABASE_MIGRATION_URL = app_settings.identity_database_migration_url
 if not IDENTITY_DATABASE_MIGRATION_URL:
     raise RuntimeError(
         "IDENTITY_DATABASE_MIGRATION_URL environment variable is required")
