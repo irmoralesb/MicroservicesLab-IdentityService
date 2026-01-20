@@ -1,8 +1,10 @@
-from sqlalchemy import String, Boolean, DateTime, func, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
-from databases.database import Base
-import uuid
 import datetime
+import uuid
+
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from infrastructure.databases.database import Base
 
 
 class UserDataModel(Base):

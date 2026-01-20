@@ -29,8 +29,8 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 # Import your models AFTER setting up the path
 try:
-    from databases.models import Base
-    from databases.database import IDENTITY_DATABASE_MIGRATION_URL
+    from infrastructure.databases.models import Base
+    from infrastructure.databases.database import IDENTITY_DATABASE_MIGRATION_URL
 
     # Set the database URL from your environment
     database_url = IDENTITY_DATABASE_MIGRATION_URL
