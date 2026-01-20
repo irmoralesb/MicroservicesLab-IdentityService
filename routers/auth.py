@@ -1,52 +1,21 @@
 from fastapi import APIRouter, status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from . import auth_schemas as schema
 from databases.models import UserDataModel, RolesDataModel, UserRolesDataModel
 from databases.database import get_monitored_db_session
 from typing import AsyncIterator
-from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
-from jose import jwt
-import os
-import uuid
+from datetime import timedelta
+from services.auth_service import authenticate_user, create_access_token
+from sqlalchemy import select
 from core.settings import app_settings
+from core.security import get_bcrypt_context
 
 router = APIRouter(
     prefix='/api/v1/auth',
     tags=["auth"]
 )
-
-#USER_ROLE_NAME = 'User'
-# _secret_token_key: str | None = os.getenv("SECRET_TOKEN_KEY")
-# if not _secret_token_key:
-#     raise HTTPException(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         detail="No Secret Token Key found."
-#     )
-# secret_token_key = _secret_token_key
-
-# _auth_algorithm: str | None = os.getenv("AUTH_ALGORITHM")
-# if not _auth_algorithm:
-#     raise HTTPException(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         detail="No Auth Algorithm specified"
-#     )
-# auth_algorithm: str = _auth_algorithm
-
-# _token_time_delta_in_minutes = os.getenv("TOKEN_TIME_DELTA_IN_MINUTES", "0")
-# if _token_time_delta_in_minutes == "0":
-#     raise HTTPException(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         detail="Token time delta not specified"
-#     )
-# token_time_delta_in_minutes = timedelta(
-#     minutes=int(_token_time_delta_in_minutes))
-
-
-_bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -54,30 +23,6 @@ async def get_db() -> AsyncIterator[AsyncSession]:
     async with get_monitored_db_session() as db:
         yield db
 
-
-def get_bcrypt_context() -> CryptContext:
-    """Dependency to provide bcrypt context for password hashing."""
-    return _bcrypt_context
-
-
-async def authenticate_user(email: str, password: str, db: AsyncSession) -> UserDataModel | None:
-    """Checks if the user password matches the stored hashed password"""
-    select_user_stmt = select(UserDataModel).where(
-        UserDataModel.email == email)
-    result = await db.execute(select_user_stmt)
-    user = result.scalars().first()
-
-    if not user:
-        return None
-
-    return user if _bcrypt_context.verify(password, user.hashed_password) else None
-
-
-def create_access_token(email: str, user_id: uuid.UUID, expires_delta: timedelta) -> str:
-    encode = {'sub': email, 'user_id': user_id}
-    expires = datetime.now(timezone.utc) + expires_delta
-    encode.update({'exp': expires})
-    return jwt.encode(encode, app_settings.secret_token_key, algorithm=app_settings.auth_algorithm)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -97,7 +42,7 @@ async def create_user(
         )
 
     # Get the user role
-    default_user_role= app_settings.default_user_role
+    default_user_role = app_settings.default_user_role
     role_info_stmt = select(RolesDataModel).where(
         RolesDataModel.name == default_user_role)
     result = await db.execute(role_info_stmt)
@@ -113,7 +58,7 @@ async def create_user(
         middle_name=create_user_request.middle_name,
         last_name=create_user_request.last_name,
         email=create_user_request.email,
-        hashed_password=_bcrypt_context.hash(create_user_request.password)
+        hashed_password=get_bcrypt_context().hash(create_user_request.password)
     )
 
     try:
@@ -163,5 +108,5 @@ async def login_for_access_token(
         email=user_authenticated.email,
         user_id=user_authenticated.id,
         expires_delta=token_time_delta)
-    
+
     return {'access_token': token, 'token_type': 'bearer'}
