@@ -11,8 +11,8 @@ from core.security import get_bcrypt_context
 from core.settings import app_settings
 from infrastructure.databases.database import get_monitored_db_session
 from infrastructure.databases.models import RolesDataModel, UserDataModel, UserRolesDataModel
-from services.auth_service import authenticate_user, create_access_token
-from . import auth_schemas as schema
+from application.services.auth_service import authenticate_user, create_access_token
+from ..schemas import auth_schemas as schema
 
 router = APIRouter(
     prefix='/api/v1/auth',
