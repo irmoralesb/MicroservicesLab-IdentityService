@@ -1,18 +1,14 @@
 from datetime import timedelta
-from typing import AsyncIterator
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.security import get_bcrypt_context
 from core.settings import app_settings
-from infrastructure.databases.database import get_monitored_db_session
-from infrastructure.databases.models import RolesDataModel, UserDataModel, UserRolesDataModel
+#from infrastructure.databases.models import RolesDataModel, UserDataModel, UserRolesDataModel
+from infrastructure.repositories import user_repository
 from application.services.auth_service import authenticate_user, create_access_token
 from ..schemas import auth_schemas as schema
+
 
 router = APIRouter(
     prefix='/api/v1/auth',
@@ -20,28 +16,13 @@ router = APIRouter(
 )
 
 
-async def get_db() -> AsyncIterator[AsyncSession]:
-    """Dependency to provide db context."""
-    async with get_monitored_db_session() as db:
-        yield db
-
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
-        create_user_request: schema.CreateUserRequest,
-        db: AsyncSession = Depends(get_db)) -> schema.UserResponse:
+        create_user_request: schema.CreateUserRequest) -> schema.UserResponse:
     # Check if user with this email already exists
-    check_user_email_stmt = select(UserDataModel).where(
-        UserDataModel.email == create_user_request.email)
-    result = await db.execute(check_user_email_stmt)
-    existing_user = result.scalars().first()
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User with email '{create_user_request.email}' already exists"
-        )
+    
 
     # Get the user role
     default_user_role = app_settings.default_user_role
