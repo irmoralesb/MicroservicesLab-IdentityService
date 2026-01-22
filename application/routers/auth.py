@@ -1,93 +1,78 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.exc import IntegrityError
-from core.security import get_bcrypt_context
+from sqlalchemy.ext.asyncio import AsyncSession
 from core.settings import app_settings
-#from infrastructure.databases.models import RolesDataModel, UserDataModel, UserRolesDataModel
-from infrastructure.repositories import user_repository
-from application.services.auth_service import authenticate_user, create_access_token
+from application.services.auth_service import AuthenticateService
 from ..schemas import auth_schemas as schema
-
+from infrastructure.databases.database import get_monitored_db_session
+from infrastructure.repositories.user_repository import UserRepository
+from infrastructure.repositories.role_repository import RoleRepository
+from domain.entities.role_model import RoleModel
+from domain.entities.user_model import UserModel
+from typing import Annotated
 
 router = APIRouter(
     prefix='/api/v1/auth',
     tags=["auth"]
 )
 
+async def get_db():
+    async with get_monitored_db_session() as db:
+        yield db
 
+async def get_user_repository(db: Annotated[AsyncSession, Depends(get_db)])-> UserRepository:
+    return UserRepository(db)
+
+async def get_role_repository(db: Annotated[AsyncSession, Depends(get_db)])-> RoleRepository:
+    return RoleRepository(db)
+
+async def get_auth_service()-> AuthenticateService:
+    return AuthenticateService()
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
-        create_user_request: schema.CreateUserRequest) -> schema.UserResponse:
-    # Check if user with this email already exists
+        create_user_request: schema.CreateUserRequest,
+        user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+        role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+        ) -> schema.UserResponse:
     
+    default_role_name:str = app_settings.default_user_role
+    user_default_role: RoleModel = await role_repo.get_by_name(default_role_name)
 
-    # Get the user role
-    default_user_role = app_settings.default_user_role
-    role_info_stmt = select(RolesDataModel).where(
-        RolesDataModel.name == default_user_role)
-    result = await db.execute(role_info_stmt)
-    user_role_info = result.scalars().first()
-    if not user_role_info:
+    new_user: UserModel = create_user_request._to_model()
+    new_user = await user_repo.create_user(new_user)
+
+    is_success : bool = await role_repo.assign_role(new_user, user_default_role)
+
+    if is_success:
+        user_response: schema.UserResponse= schema.UserResponse.from_UserModel(new_user)
+        return user_response
+
+    else:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Role {default_user_role} not defined."
+            detail="Error while creating the user"
         )
-
-    create_user_model = UserDataModel(
-        first_name=create_user_request.first_name,
-        middle_name=create_user_request.middle_name,
-        last_name=create_user_request.last_name,
-        email=create_user_request.email,
-        hashed_password=get_bcrypt_context().hash(create_user_request.password)
-    )
-
-    try:
-        db.add(create_user_model)
-        await db.commit()
-        await db.refresh(create_user_model)
-
-        user_role_model = UserRolesDataModel(
-            user_id=create_user_model.id,
-            role_id=user_role_info.id
-        )
-
-        db.add(user_role_model)
-        await db.commit()
-        await db.refresh(user_role_model)
-
-    except IntegrityError as e:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists"
-        )
-
-    user_response = schema.UserResponse(
-        id=create_user_model.id,
-        first_name=create_user_model.first_name,
-        middle_name=create_user_model.middle_name,
-        last_name=create_user_model.last_name,
-        email=create_user_model.email
-    )
-
-    return user_response
-
 
 @router.post("/token", response_model=schema.TokenResponse)
 async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db)
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    auth_svc: Annotated[AuthenticateService, Depends(get_auth_service)],
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)]
 ):
-    user_authenticated = await authenticate_user(form_data.username, form_data.password, db)
-    if not user_authenticated:
-        return "Failed Authentication"
+    user_authenticated = await auth_svc.authenticate_user(form_data.username, form_data.password, user_repo)
+
+    if not user_authenticated or not user_authenticated.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
 
     token_time_delta = timedelta(int(app_settings.token_time_delta_in_minutes))
 
-    token = create_access_token(
+    token = auth_svc.create_access_token(
         email=user_authenticated.email,
         user_id=user_authenticated.id,
         expires_delta=token_time_delta)

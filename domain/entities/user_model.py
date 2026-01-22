@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from uuid import UUID
 import datetime
 
+
 @dataclass
 class UserModel:
-    id: UUID
+    id: UUID | None
     first_name: str
     last_name: str
     email: str
