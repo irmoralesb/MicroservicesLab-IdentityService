@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from role_model import RoleModel
 from uuid import UUID
 import datetime
 
@@ -15,3 +16,9 @@ class UserModel:
     is_verified: bool = False
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+
+
+@dataclass
+class UserModelWithRoles():
+    user:UserModel
+    roles: list[RoleModel] 
