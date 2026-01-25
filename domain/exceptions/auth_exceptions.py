@@ -1,4 +1,4 @@
-class CreateUserError(Exception):
+class UserCreationError(Exception):
     """Raised when the user can't be stored"""
     def __init__(self, email: str):
         self.email = email

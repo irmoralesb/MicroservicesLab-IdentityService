@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from domain.entities.user_model import UserModel
 from infrastructure.databases.models import UserDataModel
-from domain.exceptions.auth_exceptions import UserAlreadyExistsException, CreateUserError
+from domain.exceptions.auth_exceptions import UserAlreadyExistsException, UserCreationError
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -58,7 +58,7 @@ class UserRepository(UserRepositoryInterface):
             return self._to_domain(create_user_model)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise CreateUserError(user.email) from e
+            raise UserCreationError(user.email) from e
 
        
 

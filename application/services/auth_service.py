@@ -12,7 +12,7 @@ class AuthenticateService():
     def __init__(self, user_repo: UserRepository):
         self.user_repo = user_repo
 
-    async def authenticate_user(self, email: str, password: str, user_repo: Annotated[UserRepository, Depends(get_auth_service)]) -> UserModel | None:
+    async def authenticate_user(self, email: str, password: str) -> UserModel | None:
         """Checks if the user password matches the stored hashed password"""
         user = await self.user_repo.get_by_email(email)
 

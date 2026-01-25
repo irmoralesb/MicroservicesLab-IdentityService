@@ -24,7 +24,7 @@ class RoleRepository(RoleRepositoryInterface):
     def _to_datamodel(self, role: RoleModel) -> RolesDataModel:
         return RolesDataModel(
             id=role.id,
-            service_name = role.service,
+            service_name=role.service,
             name=role.name,
             description=role.description
         )
@@ -62,16 +62,18 @@ class RoleRepository(RoleRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             return False
-        
+
     async def get_user_roles(self, user: UserModel) -> List[RoleModel]:
         if user is None:
             raise ValueError(
                 "Cannot get user roles, no user data was provided")
-        
+
         try:
-            get_role_stmt = select(RolesDataModel).where(UserRolesDataModel.user_id == user.id)
+            get_role_stmt = select(RolesDataModel).join(
+                UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id).where(UserRolesDataModel.user_id == user.id)
             result = await self.db.execute(get_role_stmt)
             role_data = result.scalars().all()
             return [self._to_domain(role) for role in role_data]
         except SQLAlchemyError as e:
-            raise AssignUserRoleError(f"Error fetching roles for user {user.id}: {str(e)}")
+            raise AssignUserRoleError(
+                f"Error fetching roles for user {user.id}: {str(e)}")
