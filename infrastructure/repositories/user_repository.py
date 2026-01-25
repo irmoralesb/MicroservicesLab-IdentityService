@@ -5,7 +5,9 @@ from infrastructure.databases.models import UserDataModel
 from domain.exceptions.auth_exceptions import UserAlreadyExistsException, UserCreationError
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
+from uuid import UUID
 
+# TODO: CATCH ALL SQLALCHEMY EXCEPTIONS AND RETHROW USING DOMAIN EXCEPTIONS
 
 class UserRepository(UserRepositoryInterface):
     def __init__(self, db: AsyncSession):
@@ -36,7 +38,7 @@ class UserRepository(UserRepositoryInterface):
             updated_at=user.updated_at,
             is_active=user.is_active,
             is_verified=user.is_verified,
-            hashed_password = user.hashed_password
+            hashed_password=user.hashed_password
         )
 
     async def create_user(self, user: UserModel) -> UserModel:
@@ -60,8 +62,6 @@ class UserRepository(UserRepositoryInterface):
             await self.db.rollback()
             raise UserCreationError(user.email) from e
 
-       
-
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""
         check_user_email_stmt = select(UserDataModel).where(
@@ -71,8 +71,17 @@ class UserRepository(UserRepositoryInterface):
 
         return None if existing_user is None else self._to_domain(existing_user)
 
+    async def get_by_id(self, id: UUID) -> UserModel | None:
+        """Get user by id"""
+        get_user_stmt = select(UserDataModel).where(
+            UserDataModel.id == id
+        )
+        result = await self.db.execute(get_user_stmt)
+        exiting_user = result.scalars().first()
+        return None if exiting_user is None else self._to_domain(exiting_user)
+
     async def exists_by_email(self, email: str) -> bool:
-        """Get user by email"""
+        """Check the user exist by email"""
         check_user_email_stmt = select(UserDataModel).where(
             UserDataModel.email == email)
         result = await self.db.execute(check_user_email_stmt)

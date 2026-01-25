@@ -88,6 +88,9 @@ class Settings(BaseSettings):
         description="Metrics collection interval in seconds",
         gt=0,
     )
+    token_url: str = Field(
+        description="This is the token URL, for instance /token"
+    )
     
     model_config = SettingsConfigDict(
         env_file=".env",  # Optional: load from .env file

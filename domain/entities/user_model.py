@@ -20,6 +20,6 @@ class UserModel:
 
 
 @dataclass
-class UserModelWithRoles():
+class UserWithRolesModel():
     user:UserModel
     roles: List[RoleModel] 

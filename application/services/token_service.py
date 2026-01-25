@@ -2,17 +2,19 @@ from uuid import UUID
 from datetime import datetime, timedelta, timezone
 import jwt
 from domain.entities.token_model import TokenPayload
-from domain.entities.user_model import UserModel, UserModelWithRoles
+from domain.entities.user_model import UserModel, UserWithRolesModel
 from infrastructure.repositories.role_repository import RoleRepository
+from infrastructure.repositories.user_repository import UserRepository
 
 
 class TokenService:
     """Service for creating and validating JWT tokens"""
     
-    def __init__(self, secret_key: str, algorithm: str, role_repo: RoleRepository):
+    def __init__(self, secret_key: str, algorithm: str, role_repo: RoleRepository, user_repo: UserRepository):
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.role_repo = role_repo
+        self.user_repo = user_repo
     
     async def create_access_token(
         self,
@@ -63,3 +65,27 @@ class TokenService:
         }
 
         return jwt.encode(token_data, self.secret_key, algorithm=self.algorithm)
+    
+    async def get_user(self, token: str) -> UserWithRolesModel:
+        
+        payload = jwt.decode(token, self.secret_key, self.algorithm)
+        user_id = payload.get('sub')
+        user = await self.user_repo.get_by_id(user_id)
+
+        if user is None:
+            raise ValueError(
+                "Cannot read the user data")
+        
+        roles = await self.role_repo.get_user_roles(user)
+
+        if roles is None or roles.count() == 0:
+            raise ValueError(
+                "Cannot read the user roles")
+
+        user_with_roles = UserWithRolesModel(user,roles)
+        return user_with_roles
+    
+        
+
+
+        

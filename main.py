@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from application.routers import auth
+from application.routers import auth_router, user_profile_router
 
 load_dotenv()
 
@@ -65,7 +65,8 @@ else:
     logger.info("Prometheus metrics disabled")
 
 
-app.include_router(auth.router)
+app.include_router(auth_router.router)
+app.include_router(user_profile_router.router)
 
 @app.get("/")
 async def root():

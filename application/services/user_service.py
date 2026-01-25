@@ -3,6 +3,7 @@ from infrastructure.repositories.role_repository import RoleRepository
 from domain.entities.user_model import UserModel
 from domain.entities.role_model import RoleModel
 from domain.exceptions.auth_exceptions import UserCreationError
+from uuid import UUID
 
 
 class UserService:
@@ -34,3 +35,8 @@ class UserService:
             raise UserCreationError("Failed to assign default role to user")
         
         return new_user
+    
+    # TODO: VALIDATE WHAT CALLER HAS PERMISSION
+    async def get_user_profile(self, user_id: UUID) -> UserModel | None:
+        user_data = await self.user_repo.get_by_id(user_id)
+        return None if user_data is None else user_data

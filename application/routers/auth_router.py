@@ -50,12 +50,14 @@ async def get_user_service(
 
 
 async def get_token_service(
-    role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)]
 ) -> TokenService:
     return TokenService(
         app_settings.secret_token_key, 
         app_settings.auth_algorithm,
-        role_repo
+        role_repo,
+        user_repo
     )
 
 

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from domain.entities.user_model import UserModel
-
+from uuid import UUID
 
 class UserRepositoryInterface(ABC):
     """Abstract base class defining the interface for user repository operations."""
@@ -29,6 +29,20 @@ class UserRepositoryInterface(ABC):
 
         Args:
             email: The email address to search for
+
+        Returns:
+            UserModel | None: The user if found, None otherwise
+        """
+        pass
+
+
+    @abstractmethod
+    async def get_by_id(self, id: UUID) -> UserModel | None:
+        """
+        Get a user by their id.
+
+        Args:
+            id: The id to search for
 
         Returns:
             UserModel | None: The user if found, None otherwise
