@@ -2,26 +2,28 @@ from uuid import UUID
 from datetime import datetime, timedelta, timezone
 import jwt
 from domain.entities.token_model import TokenPayload
-from domain.entities.user_model import UserModelWithRoles
+from domain.entities.user_model import UserModel, UserModelWithRoles
+from infrastructure.repositories.role_repository import RoleRepository
 
 
 class TokenService:
     """Service for creating and validating JWT tokens"""
     
-    def __init__(self, secret_key: str, algorithm: str = "HS256"):
+    def __init__(self, secret_key: str, algorithm: str, role_repo: RoleRepository):
         self.secret_key = secret_key
         self.algorithm = algorithm
+        self.role_repo = role_repo
     
-    def create_access_token(
+    async def create_access_token(
         self,
-        user_with_roles: UserModelWithRoles,
+        user: UserModel,
         expires_delta: timedelta = timedelta(hours=1)
     ) -> str:
         """
         Create JWT access token with user roles grouped by service
         
         Args:
-            user_with_roles: User entity with their roles
+            user: User entity
             expires_delta: Token expiration time
             
         Returns:
@@ -29,20 +31,23 @@ class TokenService:
         """
         now = datetime.now(timezone.utc)
         
-        if user_with_roles.user.id is None:
+        if user.id is None:
             raise ValueError("Id cannot be null when creating a token")
 
-        # Group roles by service (assuming RoleModel has service_name attribute)
+        # Fetch user roles
+        user_roles = await self.role_repo.get_user_roles(user)
+        
+        # Group roles by service
         roles_by_service: dict[str, list[str]] = {}
-        for role in user_with_roles.roles:
-            service = role.service  # e.g., "identity-service", "translation-service"
+        for role in user_roles:
+            service = role.service
             if service not in roles_by_service:
                 roles_by_service[service] = []
             roles_by_service[service].append(role.name)
         
         payload = TokenPayload(
-            sub=user_with_roles.user.id,
-            email=user_with_roles.user.email,
+            sub=user.id,
+            email=user.email,
             roles=roles_by_service,
             exp=now + expires_delta,
             iat=now
@@ -57,5 +62,4 @@ class TokenService:
             "iat": payload.iat
         }
 
-        # PyJWT 2.x returns str, but type checker might see bytes
-        return jwt.encode(token_data, self.secret_key, algorithm=self.algorithm)     # pyright: ignore[reportReturnType]
+        return jwt.encode(token_data, self.secret_key, algorithm=self.algorithm)

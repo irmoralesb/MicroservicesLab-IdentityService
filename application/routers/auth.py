@@ -2,16 +2,17 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Annotated
+
 from core.settings import app_settings
 from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
-from ..schemas import auth_schemas as schema
+from application.services.user_service import UserService
+from application.schemas import auth_schemas as schema
 from infrastructure.databases.database import get_monitored_db_session
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
-from domain.entities.role_model import RoleModel
-from domain.entities.user_model import UserModel, UserModelWithRoles
-from typing import Annotated
+from domain.entities.user_model import UserModel
 
 router = APIRouter(
     prefix='/api/v1/auth',
@@ -19,11 +20,13 @@ router = APIRouter(
 )
 
 
+# Database session dependency
 async def get_db():
     async with get_monitored_db_session() as db:
         yield db
 
 
+# Repository dependencies
 async def get_user_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> UserRepository:
     return UserRepository(db)
 
@@ -32,38 +35,51 @@ async def get_role_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> R
     return RoleRepository(db)
 
 
-async def get_auth_service() -> AuthenticateService:
-    return AuthenticateService()
+# Service dependencies
+async def get_auth_service(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)]
+) -> AuthenticateService:
+    return AuthenticateService(user_repo)
 
 
-async def get_token_service() -> TokenService:
-    return TokenService(app_settings.secret_token_key, app_settings.auth_algorithm)
+async def get_user_service(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+) -> UserService:
+    return UserService(user_repo, role_repo)
+
+
+async def get_token_service(
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+) -> TokenService:
+    return TokenService(
+        app_settings.secret_token_key, 
+        app_settings.auth_algorithm,
+        role_repo
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
-        create_user_request: schema.CreateUserRequest,
-        user_repo: Annotated[UserRepository, Depends(get_user_repository)],
-        role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+    create_user_request: schema.CreateUserRequest,
+    user_svc: Annotated[UserService, Depends(get_user_service)]
 ) -> schema.UserResponse:
-
-    default_role_name: str = app_settings.default_user_role
-    user_default_role: RoleModel = await role_repo.get_by_name(default_role_name)
-
+    """Create a new user with default role"""
+    
     new_user: UserModel = create_user_request._to_model()
-    new_user = await user_repo.create_user(new_user)
-
-    is_success: bool = await role_repo.assign_role(new_user, user_default_role)
-
-    if is_success:
-        user_response: schema.UserResponse = schema.UserResponse.from_UserModel(
-            new_user)
-        return user_response
-
-    else:
+    
+    try:
+        created_user = await user_svc.create_user_with_default_role(
+            new_user, 
+            app_settings.default_user_role
+        )
+        
+        return schema.UserResponse.from_UserModel(created_user)
+        
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while creating the user"
+            detail=f"Error while creating the user: {str(e)}"
         )
 
 
@@ -71,11 +87,14 @@ async def create_user(
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     auth_svc: Annotated[AuthenticateService, Depends(get_auth_service)],
-    token_svc: Annotated[TokenService, Depends(get_token_service)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
-    role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+    token_svc: Annotated[TokenService, Depends(get_token_service)]
 ):
-    user_authenticated = await auth_svc.authenticate_user(form_data.username, form_data.password, user_repo)
+    """Authenticate user and return access token"""
+    
+    user_authenticated = await auth_svc.authenticate_user(
+        form_data.username, 
+        form_data.password
+    )
 
     if not user_authenticated or not user_authenticated.id:
         raise HTTPException(
@@ -83,14 +102,10 @@ async def login_for_access_token(
             detail="Invalid credentials"
         )
 
-    token_time_delta = timedelta(int(app_settings.token_time_delta_in_minutes))
+    token_time_delta = timedelta(minutes=int(app_settings.token_time_delta_in_minutes))
 
-    user_roles = await role_repo.get_user_roles(user_authenticated)
-
-    user_with_roles: UserModelWithRoles = UserModelWithRoles( user_authenticated, user_roles)
-
-    token = token_svc.create_access_token(
-        user_with_roles=user_with_roles,
+    token = await token_svc.create_access_token(
+        user=user_authenticated,
         expires_delta=token_time_delta
     )
 
