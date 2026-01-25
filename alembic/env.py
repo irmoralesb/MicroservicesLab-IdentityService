@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from alembic import context
 import sys
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 # Add the parent directory to sys.path to allow imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,6 +35,16 @@ try:
 
     # Set the database URL from your environment
     database_url = IDENTITY_DATABASE_MIGRATION_URL
+    
+    # Add LongAsMax parameter if not present
+    parsed = urlparse(database_url)
+    query_params = parse_qs(parsed.query)
+    if 'LongAsMax' not in query_params:
+        query_params['LongAsMax'] = ["Yes"]
+    
+    parsed = parsed._replace(query=urlencode(query_params, doseq=True))
+    database_url = urlunparse(parsed)
+    
     config.set_main_option("sqlalchemy.url", database_url)
 
     # Set target metadata for autogenerate support
@@ -79,6 +90,7 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        use_setinputsizes=False,  # Fix for SQL Server ODBC driver precision error
     )
 
     with connectable.connect() as connection:

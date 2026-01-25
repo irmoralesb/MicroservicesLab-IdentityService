@@ -10,7 +10,7 @@ from infrastructure.databases.database import get_monitored_db_session
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
 from domain.entities.role_model import RoleModel
-from domain.entities.user_model import UserModel
+from domain.entities.user_model import UserModel, UserModelWithRoles
 from typing import Annotated
 
 router = APIRouter(
@@ -72,7 +72,8 @@ async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     auth_svc: Annotated[AuthenticateService, Depends(get_auth_service)],
     token_svc: Annotated[TokenService, Depends(get_token_service)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repository)]
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
 ):
     user_authenticated = await auth_svc.authenticate_user(form_data.username, form_data.password, user_repo)
 
@@ -84,8 +85,9 @@ async def login_for_access_token(
 
     token_time_delta = timedelta(int(app_settings.token_time_delta_in_minutes))
 
-    # TODO: Need to get User with Roles
-    user_with_roles: UserWithRoles = None
+    user_roles = await role_repo.get_user_roles(user_authenticated)
+
+    user_with_roles: UserModelWithRoles = UserModelWithRoles( user_authenticated, user_roles)
 
     token = token_svc.create_access_token(
         user_with_roles=user_with_roles,

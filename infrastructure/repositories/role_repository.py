@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from infrastructure.databases.models import RolesDataModel, UserRolesDataModel
+from typing import List
 
 
 class RoleRepository(RoleRepositoryInterface):
@@ -15,6 +16,7 @@ class RoleRepository(RoleRepositoryInterface):
     def _to_domain(self, db_role: RolesDataModel) -> RoleModel:
         return RoleModel(
             id=db_role.id,
+            service=db_role.service_name,
             name=db_role.name,
             description=db_role.description
         )
@@ -22,6 +24,7 @@ class RoleRepository(RoleRepositoryInterface):
     def _to_datamodel(self, role: RoleModel) -> RolesDataModel:
         return RolesDataModel(
             id=role.id,
+            service_name = role.service,
             name=role.name,
             description=role.description
         )
@@ -59,4 +62,16 @@ class RoleRepository(RoleRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             return False
-            #raise AssignUserRoleError(user.first_name, role.name) from e
+        
+    async def get_user_roles(self, user: UserModel) -> List[RoleModel]:
+        if user is None:
+            raise ValueError(
+                "Cannot get user roles, no user data was provided")
+        
+        try:
+            get_role_stmt = select(RolesDataModel).where(UserRolesDataModel.user_id == user.id)
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().all()
+            return [self._to_domain(role) for role in role_data]
+        except SQLAlchemyError as e:
+            raise AssignUserRoleError(f"Error fetching roles for user {user.id}: {str(e)}")

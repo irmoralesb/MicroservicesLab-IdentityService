@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from role_model import RoleModel
+from .role_model import RoleModel
 from uuid import UUID
+from typing import List
 import datetime
 
 
@@ -21,4 +22,4 @@ class UserModel:
 @dataclass
 class UserModelWithRoles():
     user:UserModel
-    roles: list[RoleModel] 
+    roles: List[RoleModel] 
