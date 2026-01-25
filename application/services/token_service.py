@@ -78,7 +78,7 @@ class TokenService:
         
         roles = await self.role_repo.get_user_roles(user)
 
-        if roles is None or roles.count() == 0:
+        if roles is None or len(roles) == 0:
             raise ValueError(
                 "Cannot read the user roles")
 

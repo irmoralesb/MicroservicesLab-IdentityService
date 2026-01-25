@@ -4,11 +4,12 @@ from typing import Annotated
 from core.settings import app_settings
 from application.services.token_service import TokenService
 from application.services.user_service import UserService
+from application.schemas.user_profile_schema import UserProfile
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from infrastructure.databases.database import get_monitored_db_session
-from domain.entities.user_model import UserModel, UserWithRolesModel
+from domain.entities.user_model import UserWithRolesModel
 
 
 router = APIRouter(
@@ -65,7 +66,7 @@ async def get_authenticated_user(
 
 
 
-@router.get("/profile",response_model=UserModel)
+@router.get("/profile", response_model=UserProfile)
 async def get_current_user(
         current_user: Annotated[UserWithRolesModel, Depends(get_authenticated_user)],
         user_svc: Annotated[UserService, Depends(get_user_service)]):
@@ -75,12 +76,15 @@ async def get_current_user(
             return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                  detail="Unable to get user profile data")
 
-        user_profile = user_svc.get_user_profile(current_user.user.id)
+        user_profile = await user_svc.get_user_profile(current_user.user.id)
         if user_profile is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Profile not found."
             )
+        
+        return UserProfile.from_UserModel(user_profile)
+        
     except ValueError as e:
         # TODO: Log the error: e
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,

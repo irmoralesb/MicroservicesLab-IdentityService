@@ -242,7 +242,7 @@ def upgrade() -> None:
                 'first_name': 'System',
                 'middle_name': None,
                 'last_name': 'Administrator',
-                'email': 'admin@identityservice.local',
+                'email': 'admin@email.com',
                 'hashed_password': admin_hashed_password,
                 'is_active': True,
                 'is_verified': True
