@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     token_url: str = Field(
         description="This is the token URL, for instance /token"
     )
+
+    # Service Configuration
+    service_name: str = Field(
+        default="identity-service",
+        description="Name of this microservice for RBAC scoping"
+    )
     
     model_config = SettingsConfigDict(
         env_file=".env",  # Optional: load from .env file

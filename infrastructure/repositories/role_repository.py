@@ -5,7 +5,12 @@ from domain.interfaces.role_repository import RoleRepositoryInterface
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from infrastructure.databases.models import RolesDataModel, UserRolesDataModel
+from infrastructure.databases.models import (
+    RolesDataModel,
+    UserRolesDataModel,
+    RolePermissionsDataModel,
+    PermissionsDataModel,
+    UserPermissionsDataModel)
 from typing import List
 
 
@@ -77,3 +82,152 @@ class RoleRepository(RoleRepositoryInterface):
         except SQLAlchemyError as e:
             raise AssignUserRoleError(
                 f"Error fetching roles for user {user.id}: {str(e)}")
+
+    async def check_user_permission(
+            self,
+            user: UserModel,
+            service_name: str,
+            resource: str,
+            action: str
+    ) -> bool:
+        """
+        Check if user has permission through roles or direct assignment
+
+        Args:
+            user: User to check
+            service_name: Microservice name (e.g., 'identity-service')
+            resource: Resource type
+            action: Action type
+
+        Returns:
+            bool: True if user has permission
+        """
+        if user is None or user.id is None:
+            return False
+
+        try:
+            # Role base permission
+            check_role_permission_stmt = select(RolesDataModel).join(
+                UserRolesDataModel,
+                UserRolesDataModel.role_id == RolesDataModel.id
+            ).join(
+                RolePermissionsDataModel,
+                RolePermissionsDataModel.role_id == RolesDataModel.id
+            ).join(
+                PermissionsDataModel,
+                PermissionsDataModel.id == RolePermissionsDataModel.permission_id
+            ).where(
+                UserRolesDataModel.user_id == user.id,
+                PermissionsDataModel.service_name == service_name,
+                PermissionsDataModel.resource == resource,
+                PermissionsDataModel.action == action
+            )
+
+            result = await self.db.execute(check_role_permission_stmt)
+            role_permission = result.scalars().first()
+
+            if role_permission:
+                return True
+
+            # Check direct user permissions
+            check_user_permission_stmt = select(PermissionsDataModel).join(
+                UserPermissionsDataModel,
+                UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+            ).where(
+                UserPermissionsDataModel.user_id == user.id,
+                PermissionsDataModel.service_name == service_name,
+                PermissionsDataModel.resource == resource,
+                PermissionsDataModel.action == action
+            )
+
+            result = await self.db.execute(check_user_permission_stmt)
+            user_permission = result.scalars().first()
+
+            return user_permission is not None
+
+        except SQLAlchemyError as e:
+            # Log error
+            return False
+
+    async def get_user_permissions(
+        self,
+        user: UserModel,
+        service_name: str | None = None
+    ) -> List[dict]:
+        """
+           Get all permissions for a user (both role-based and direct)
+
+            Args:
+                user: User to check
+                service_name: Optional Service filter. If None it returns all services
+
+           Returns:
+               List of permission dictionaries with resource, action, source
+        """
+
+        if user is None or user.id is None:
+            return []
+
+        permissions = []
+
+        try:
+
+            role_permissions_stmt = select(
+                PermissionsDataModel
+            ).join(
+                RolePermissionsDataModel,
+                RolePermissionsDataModel.permission_id == PermissionsDataModel.id
+            ).join(
+                UserRolesDataModel,
+                UserRolesDataModel.role_id == RolePermissionsDataModel.role_id
+            ).where(
+                UserRolesDataModel.user_id == user.id,
+            )
+
+            if service_name:
+                role_permissions_stmt = role_permissions_stmt.where(
+                    PermissionsDataModel.service_name == service_name
+                )
+
+            role_permissions_stmt = role_permissions_stmt.distinct()
+
+            result = await self.db.execute(role_permissions_stmt)
+            for perm in result.scalars().all():
+                permissions.append({
+                    'service_name': perm.service_name,
+                    'resource': perm.resource,
+                    'action': perm.action,
+                    'name': perm.name,
+                    'source': 'role'
+                })
+
+            # Get direct user permissions
+            user_permissions_stmt = select(
+                PermissionsDataModel
+            ).join(
+                UserPermissionsDataModel,
+                UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+            ).where(
+                UserPermissionsDataModel.user_id == user.id
+            )
+
+            if service_name:
+                user_permissions_stmt = user_permissions_stmt.where(
+                    PermissionsDataModel.service_name == service_name
+                )
+
+            result = await self.db.execute(user_permissions_stmt)
+            for perm in result.scalars().all():
+                permissions.append({
+                    'service_name': perm.service_name,
+                    'resource': perm.resource,
+                    'action': perm.action,
+                    'name': perm.name,
+                    'source': 'direct'
+                })
+
+            return permissions
+        except SQLAlchemyError as e:
+            raise AssignUserRoleError(
+                f"Error fetching permissions for user {user.id}: {str(e)}"
+            )

@@ -3,8 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 from core.settings import app_settings
-from application.services.auth_service import AuthenticateService
-from application.services.token_service import TokenService
 from application.schemas import auth_schemas as schema
 from infrastructure.databases.database import get_monitored_db_session
 from domain.entities.user_model import UserModel

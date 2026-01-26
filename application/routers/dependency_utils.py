@@ -10,20 +10,25 @@ from infrastructure.repositories.role_repository import RoleRepository
 from application.services.user_service import UserService
 from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
+from application.services.authorization_service import AuthorizationService
 from domain.entities.user_model import UserWithRolesModel
+
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     """Yield a monitored async DB session per request."""
     async with get_monitored_db_session() as db:
         yield db
 
+
 def get_user_repository(db: Annotated[AsyncSession, Depends(get_db_session)]) -> UserRepository:
     """Provide a `UserRepository` bound to the current DB session."""
     return UserRepository(db)
 
+
 def get_role_repository(db: Annotated[AsyncSession, Depends(get_db_session)]) -> RoleRepository:
     """Provide a `RoleRepository` bound to the current DB session."""
     return RoleRepository(db)
+
 
 def get_user_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
@@ -52,7 +57,9 @@ def get_token_service(
         user_repo,
     )
 
+
 oauth_bearer = OAuth2PasswordBearer(tokenUrl=app_settings.token_url)
+
 
 async def get_authenticated_user(
     token: Annotated[str, Depends(oauth_bearer)],
@@ -67,8 +74,19 @@ async def get_authenticated_user(
             detail="Invalid or expired token.",
         )
 
+
+async def get_authorization_service(
+        role_repo: Annotated[RoleRepository, Depends(get_role_repository)]
+) -> AuthorizationService:
+    """Provide Authorization service"""
+    return AuthorizationService(role_repo)
+
+
 # Clean aliases for router signatures
 UserSvcDep = Annotated[UserService, Depends(get_user_service)]
 AuthSvcDep = Annotated[AuthenticateService, Depends(get_auth_service)]
 TokenSvcDep = Annotated[TokenService, Depends(get_token_service)]
 CurrentUserDep = Annotated[UserWithRolesModel, Depends(get_authenticated_user)]
+AuthzSvcDep = Annotated[AuthorizationService,Depends(get_authorization_service)]
+
+# TODO: CONTINUE WITH STEP 4 - Create Permission Checker Dependency
