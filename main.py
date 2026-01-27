@@ -2,10 +2,15 @@ from dotenv import load_dotenv
 from core.settings import app_settings
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
-
+from fastapi.responses import JSONResponse
+from domain.exceptions.auth_exceptions import (
+    MissingPermissionException,
+    MissingRoleException,
+    UnauthorizedUserException
+)
 from application.routers import auth_router, user_profile_router
 
 load_dotenv()
@@ -36,6 +41,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(MissingPermissionException)
+async def permission_exception_handler(request, exc: MissingPermissionException):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+            "detail": f"Permission denied: {str(exc)}",
+            "resource": exc.resource,
+            "action": exc.action
+        }
+    )
+
+
+@app.exception_handler(MissingRoleException)
+async def permission_exception_handler(request, exc: MissingRoleException):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+            "detail": f"Role required: {str(exc)}",
+            "role": exc.role_name
+        }
+    )
+
+
+@app.exception_handler(UnauthorizedUserException)
+async def unauthorized_exception_handler(request, exc: UnauthorizedUserException):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": str(exc)}
+    )
+
 
 # Prometheus metrics configuration
 METRICS_ENABLED = app_settings.metrics_enabled == "true"
@@ -68,11 +105,10 @@ else:
 app.include_router(auth_router.router)
 app.include_router(user_profile_router.router)
 
+
 @app.get("/")
 async def root():
     """
     Root endpoint
     """
-    return {"message":"Contact your Administrator to get access to the system"}
-
-
+    return {"message": "Contact your Administrator to get access to the system"}

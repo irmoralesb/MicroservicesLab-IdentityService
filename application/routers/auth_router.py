@@ -4,9 +4,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 from core.settings import app_settings
 from application.schemas import auth_schemas as schema
-from infrastructure.databases.database import get_monitored_db_session
+from application.routers.dependency_utils import (
+    UserSvcDep, AuthSvcDep, TokenSvcDep, require_permission, CurrentUserDep)
+#from infrastructure.databases.database import get_monitored_db_session
 from domain.entities.user_model import UserModel
-from application.routers.dependency_utils import UserSvcDep, AuthSvcDep, TokenSvcDep
+from domain.exceptions.auth_exceptions import MissingPermissionException
 
 
 router = APIRouter(
@@ -15,12 +17,17 @@ router = APIRouter(
 )
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", 
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("user", "create"))]
+)
 async def create_user(
     create_user_request: schema.CreateUserRequest,
-    user_svc: UserSvcDep
+    user_svc: UserSvcDep,
+    current_user: CurrentUserDep
 ) -> schema.UserResponse:
-    """Create a new user with default role"""
+    """Create a new user with default role (Admin only)"""
     
     new_user: UserModel = create_user_request._to_model()
     
@@ -32,6 +39,11 @@ async def create_user(
         
         return schema.UserResponse.from_UserModel(created_user)
         
+    except MissingPermissionException as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -46,9 +58,9 @@ async def login_for_access_token(
     token_svc: TokenSvcDep
 ):
     """Authenticate user and return access token"""
-    
+
     user_authenticated = await auth_svc.authenticate_user(
-        form_data.username, 
+        form_data.username,
         form_data.password
     )
 
@@ -58,7 +70,8 @@ async def login_for_access_token(
             detail="Invalid credentials"
         )
 
-    token_time_delta = timedelta(minutes=int(app_settings.token_time_delta_in_minutes))
+    token_time_delta = timedelta(minutes=int(
+        app_settings.token_time_delta_in_minutes))
 
     token = await token_svc.create_access_token(
         user=user_authenticated,

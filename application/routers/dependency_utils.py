@@ -12,6 +12,7 @@ from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
 from application.services.authorization_service import AuthorizationService
 from domain.entities.user_model import UserWithRolesModel
+from domain.exceptions.auth_exceptions import MissingPermissionException, MissingRoleException
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
@@ -82,11 +83,52 @@ async def get_authorization_service(
     return AuthorizationService(role_repo)
 
 
+def require_permission(resource: str, action: str):
+    """
+    Dependency factory to check if current user has specific permission
+
+    Usage in router:
+        @router.post("", dependencies=[Depends(require_permission("user", "create"))])
+    """
+    async def permission_checker(
+            current_user: CurrentUserDep,
+            authz_svc: AuthzSvcDep
+    ) -> UserWithRolesModel:
+        """Check if user has required permission"""
+        has_permission = await authz_svc.check_permission(current_user, resource, action)
+
+        if has_permission:
+            return current_user
+
+        raise MissingPermissionException(resource=resource, action=action)
+    return permission_checker
+
+
+def require_role(role_name: str):
+    """
+    Dependency factory to check if current user has specific role
+
+    Usage in router:
+        @router.post("", dependencies=[Depends(require_role("admin"))])
+    """
+    async def role_checker(
+            current_user: CurrentUserDep,
+            authz_svc: AuthzSvcDep
+    ) -> UserWithRolesModel:
+        """Check if the user has required role"""
+        has_role = authz_svc.check_role(current_user, role_name)
+
+        if has_role:
+            return True
+
+        raise MissingRoleException(role_name)
+    return role_checker
+
+
 # Clean aliases for router signatures
 UserSvcDep = Annotated[UserService, Depends(get_user_service)]
 AuthSvcDep = Annotated[AuthenticateService, Depends(get_auth_service)]
 TokenSvcDep = Annotated[TokenService, Depends(get_token_service)]
 CurrentUserDep = Annotated[UserWithRolesModel, Depends(get_authenticated_user)]
-AuthzSvcDep = Annotated[AuthorizationService,Depends(get_authorization_service)]
-
-# TODO: CONTINUE WITH STEP 4 - Create Permission Checker Dependency
+AuthzSvcDep = Annotated[AuthorizationService,
+                        Depends(get_authorization_service)]
