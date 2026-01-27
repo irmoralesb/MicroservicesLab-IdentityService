@@ -5,8 +5,7 @@ from typing import Annotated
 from core.settings import app_settings
 from application.schemas import auth_schemas as schema
 from application.routers.dependency_utils import (
-    UserSvcDep, AuthSvcDep, TokenSvcDep, require_permission, CurrentUserDep)
-#from infrastructure.databases.database import get_monitored_db_session
+    UserSvcDep, AuthSvcDep, TokenSvcDep, CurrentUserDep, require_role ,require_permission)
 from domain.entities.user_model import UserModel
 from domain.exceptions.auth_exceptions import MissingPermissionException
 
@@ -20,12 +19,11 @@ router = APIRouter(
 @router.post(
     "", 
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("user", "create"))]
+    dependencies=[Depends(require_role("admin")),Depends(require_permission("user", "create"))]
 )
 async def create_user(
     create_user_request: schema.CreateUserRequest,
-    user_svc: UserSvcDep,
-    current_user: CurrentUserDep
+    user_svc: UserSvcDep
 ) -> schema.UserResponse:
     """Create a new user with default role (Admin only)"""
     
