@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 
-class UserProfile(BaseModel):
+class UserProfileResponse(BaseModel):
     id: uuid.UUID | None
     first_name: str = Field(..., max_length=50)
     middle_name: str | None = Field(default=None, max_length=50)
@@ -16,7 +16,7 @@ class UserProfile(BaseModel):
     updated_at: datetime | None = None
 
     @classmethod
-    def from_UserModel(cls, user: UserModel) -> "UserProfile":
+    def from_user_model(cls, user: UserModel) -> UserProfileResponse:
         return cls(
             id=user.id,
             first_name=user.first_name,
@@ -28,3 +28,18 @@ class UserProfile(BaseModel):
             created_at=user.created_at,
             updated_at=user.updated_at
         )
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: str = Field(..., max_length=50)
+    middle_name: str | None = Field(default=None, max_length=50)
+    last_name: str = Field(..., max_length=50)
+    email: EmailStr = Field(..., max_length=100)
+
+    
+    def update_user_model(self, user: UserModel) -> None:
+        user.first_name = self.first_name
+        user.middle_name = self.middle_name
+        user.last_name = self.last_name
+        user.email = self.email
+        

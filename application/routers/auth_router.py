@@ -5,7 +5,7 @@ from typing import Annotated
 from core.settings import app_settings
 from application.schemas import auth_schemas as schema
 from application.routers.dependency_utils import (
-    UserSvcDep, AuthSvcDep, TokenSvcDep, CurrentUserDep, require_role ,require_permission)
+    UserSvcDep, AuthSvcDep, TokenSvcDep, require_role ,require_permission)
 from domain.entities.user_model import UserModel
 from domain.exceptions.auth_exceptions import MissingPermissionException
 

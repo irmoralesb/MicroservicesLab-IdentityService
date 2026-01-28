@@ -2,12 +2,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from domain.entities.user_model import UserModel
 from infrastructure.databases.models import UserDataModel
-from domain.exceptions.auth_exceptions import UserAlreadyExistsException, UserCreationError
+from domain.exceptions.auth_exceptions import (
+    UserAlreadyExistsException,
+    UserCreationError,
+    UserNotFoundException,
+    UserUpdateError)
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 
 # TODO: CATCH ALL SQLALCHEMY EXCEPTIONS AND RETHROW USING DOMAIN EXCEPTIONS
+
 
 class UserRepository(UserRepositoryInterface):
     def __init__(self, db: AsyncSession):
@@ -41,6 +46,15 @@ class UserRepository(UserRepositoryInterface):
             hashed_password=user.hashed_password
         )
 
+    def _update_datamodel(self, user: UserModel, user_data: UserDataModel) -> None:
+        """It updates the user data model with data from the user model"""
+        user_data.first_name = user.first_name
+        user_data.middle_name = user.middle_name
+        user_data.last_name = user.last_name
+        user_data.email = user.email
+        user_data.is_active = user.is_active
+        user_data.is_verified = user.is_verified
+
     async def create_user(self, user: UserModel) -> UserModel:
         """Add a new user"""
         if user is None:
@@ -61,6 +75,31 @@ class UserRepository(UserRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise UserCreationError(user.email) from e
+
+    async def update_user(self, user: UserModel) -> UserModel:
+        """Update existing user"""
+
+        if user is None or user.id is None:
+            raise UserNotFoundException(user.email)
+
+        get_user_to_update_stmt = select(UserDataModel).where(
+            UserDataModel.id == user.id
+        )
+        result = await self.db.execute(get_user_to_update_stmt)
+        user_to_update = result.scalars().first()
+
+        if user_to_update is None:
+            raise UserNotFoundException(user.email)
+
+        try:
+            self._update_datamodel(user, user_to_update)
+            await self.db.commit()
+            await self.db.refresh(user_to_update)
+            return self._to_domain(user_to_update)
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise UserUpdateError(user.email)
+        
 
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""

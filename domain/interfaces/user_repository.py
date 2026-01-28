@@ -23,6 +23,23 @@ class UserRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def update_user(self, user: UserModel) -> UserModel:
+        """
+        Update an existing user in the repository.
+
+        Args:
+            user: The user model with updated fields
+
+        Returns:
+            UserModel: The updated user
+
+        Raises:
+            UserNotFoundException: If the user doesn't exist
+            UserUpdateError: If the update operation fails
+        """
+        pass
+
+    @abstractmethod
     async def get_by_email(self, email: str) -> UserModel | None:
         """
         Get a user by their email address.
