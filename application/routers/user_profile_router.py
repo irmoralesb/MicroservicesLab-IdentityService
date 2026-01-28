@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from application.schemas.user_profile_schema import UserProfileResponse, UpdateProfileRequest
-from infrastructure.databases.database import get_monitored_db_session
 from application.routers.dependency_utils import (
     UserSvcDep, CurrentUserDep, get_authenticated_user, require_role, require_permission)
 from uuid import UUID

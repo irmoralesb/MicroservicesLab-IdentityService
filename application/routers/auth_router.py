@@ -68,6 +68,12 @@ async def login_for_access_token(
             detail="Invalid credentials"
         )
 
+    if not user_authenticated.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user"
+        )
+
     token_time_delta = timedelta(minutes=int(
         app_settings.token_time_delta_in_minutes))
 
