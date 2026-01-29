@@ -92,6 +92,16 @@ class Settings(BaseSettings):
         description="This is the token URL, for instance /token"
     )
 
+    max_failed_password_attempts: int = Field(
+        default=3,
+        description="Maximum failed password attempts"
+    )
+
+    lockout_duration_in_minutes: int =Field(
+        default=60,
+        description="Lockout duration after max number of failed password atteps was reached"
+    )
+
     # Service Configuration
     service_name: str = Field(
         default="identity-service",

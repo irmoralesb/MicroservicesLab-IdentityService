@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from domain.entities.user_model import UserModel
 from core.security import get_bcrypt_context
+from core.password_validator import PasswordValidator, PasswordValidationError
 import uuid
 
 
@@ -11,6 +12,16 @@ class CreateUserRequest(BaseModel):
     email: EmailStr = Field(..., max_length=100)
     password: str = Field(..., min_length=8, max_length=100)
 
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """Validate password meets security requirements"""
+        try:
+            PasswordValidator.validate(v)
+        except PasswordValidationError as e:
+            raise ValueError(str(e))
+        return v
+
     def _to_model(self)-> UserModel:
         return UserModel(
             id= None,
@@ -20,6 +31,27 @@ class CreateUserRequest(BaseModel):
             email=self.email,
             hashed_password= get_bcrypt_context().hash(self.password)
         )
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request model for user password change"""
+    current_password: str = Field(..., min_length=1, max_length=100)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """Validate new password meets security requirements"""
+        try:
+            PasswordValidator.validate(v)
+        except PasswordValidationError as e:
+            raise ValueError(str(e))
+        return v
+
+
+class UnlockAccountRequest(BaseModel):
+    """Request model for admin to unlock a user account"""
+    user_id: uuid.UUID = Field(..., description="UUID of the user to unlock")
 
 
 class UserResponse(BaseModel):

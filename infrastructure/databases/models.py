@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from datetime import timezone
 
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,10 +23,16 @@ class UserDataModel(Base):
         Boolean, nullable=False, default=False)
     is_verified: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
+    failed_login_attempts: Mapped[int] = mapped_column(
+        default=0, nullable=False,
+        comment="Number of consecutive failed login attempts")
+    locked_until: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="Timestamp until which the account is locked")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.getutcdate(), nullable=False)
+        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.getutcdate(), nullable=False)
+        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
 
 
 class RolesDataModel(Base):

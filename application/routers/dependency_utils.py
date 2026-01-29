@@ -43,7 +43,10 @@ def get_user_service(
 async def get_auth_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)]
 ) -> AuthenticateService:
-    return AuthenticateService(user_repo)
+    return AuthenticateService(
+        app_settings.max_failed_password_attempts,
+        app_settings.lockout_duration_in_minutes,
+        user_repo)
 
 
 def get_token_service(

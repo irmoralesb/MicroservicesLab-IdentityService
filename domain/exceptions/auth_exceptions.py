@@ -62,3 +62,28 @@ class MissingPermissionException(Exception):
         self.action = action
         super().__init__(
             f"User does not have permission to {action} {resource}")
+
+
+class AccountLockedException(Exception):
+    """Raised when a user account is temporarily locked due to failed login attempts"""
+
+    def __init__(self, locked_until: str):
+        self.locked_until = locked_until
+        super().__init__(
+            f"Account is temporarily locked. Please try again after {locked_until}")
+
+
+class InvalidPasswordException(Exception):
+    """Raised when password does not meet security requirements"""
+
+    def __init__(self, errors: list[str]):
+        self.errors = errors
+        super().__init__("; ".join(errors))
+
+
+class PasswordChangeError(Exception):
+    """Raised when password change operation fails"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)

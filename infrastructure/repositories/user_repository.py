@@ -29,7 +29,9 @@ class UserRepository(UserRepositoryInterface):
             updated_at=db_user.updated_at,
             is_active=db_user.is_active,
             is_verified=db_user.is_verified,
-            hashed_password=db_user.hashed_password
+            hashed_password=db_user.hashed_password,
+            failed_login_attempts=db_user.failed_login_attempts,
+            locked_until=db_user.locked_until
         )
 
     def _to_datamodel(self, user: UserModel) -> UserDataModel:
@@ -43,7 +45,9 @@ class UserRepository(UserRepositoryInterface):
             updated_at=user.updated_at,
             is_active=user.is_active,
             is_verified=user.is_verified,
-            hashed_password=user.hashed_password
+            hashed_password=user.hashed_password,
+            failed_login_attempts=user.failed_login_attempts,
+            locked_until=user.locked_until
         )
 
     def _update_datamodel(self, user: UserModel, user_data: UserDataModel) -> None:
@@ -54,6 +58,9 @@ class UserRepository(UserRepositoryInterface):
         user_data.email = user.email
         user_data.is_active = user.is_active
         user_data.is_verified = user.is_verified
+        user_data.failed_login_attempts = user.failed_login_attempts
+        user_data.locked_until = user.locked_until
+        user_data.hashed_password = user.hashed_password
 
     async def create_user(self, user: UserModel) -> UserModel:
         """Add a new user"""
