@@ -2,10 +2,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from domain.entities.user_model import UserModel
 from infrastructure.databases.models import UserDataModel
-from domain.exceptions.auth_exceptions import (
-    UserAlreadyExistsException,
+from domain.exceptions.auth_errors import (
+    UserAlreadyExistsError,
     UserCreationError,
-    UserNotFoundException,
+    UserNotFoundError,
     UserUpdateError)
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
@@ -68,7 +68,7 @@ class UserRepository(UserRepositoryInterface):
         user_exists = await self.exists_by_email(user.email)
 
         if user_exists:
-            raise UserAlreadyExistsException(user.email)
+            raise UserAlreadyExistsError(user.email)
 
         try:
             create_user_model = self._to_datamodel(user)
@@ -85,7 +85,7 @@ class UserRepository(UserRepositoryInterface):
         """Update existing user"""
 
         if user is None or user.id is None:
-            raise UserNotFoundException(user.email)
+            raise UserNotFoundError(user.email)
 
         try:
             get_user_to_update_stmt = select(UserDataModel).where(
@@ -95,7 +95,7 @@ class UserRepository(UserRepositoryInterface):
             user_to_update = result.scalars().first()
 
             if user_to_update is None:
-                raise UserNotFoundException(user.email)
+                raise UserNotFoundError(user.email)
             self._update_datamodel(user, user_to_update)
             await self.db.commit()
             await self.db.refresh(user_to_update)
@@ -115,7 +115,7 @@ class UserRepository(UserRepositoryInterface):
 
             return None if existing_user is None else self._to_domain(existing_user)
         except SQLAlchemyError as e:
-            raise UserNotFoundException(email) from e
+            raise UserNotFoundError(email) from e
 
     async def get_by_id(self, id: UUID) -> UserModel | None:
         """Get user by id"""
@@ -127,7 +127,7 @@ class UserRepository(UserRepositoryInterface):
             exiting_user = result.scalars().first()
             return None if exiting_user is None else self._to_domain(exiting_user)
         except SQLAlchemyError as e:
-            raise UserNotFoundException(str(id)) from e
+            raise UserNotFoundError(str(id)) from e
 
     async def exists_by_email(self, email: str) -> bool:
         """Check the user exist by email"""
@@ -139,4 +139,4 @@ class UserRepository(UserRepositoryInterface):
 
             return False if existing_user is None else True
         except SQLAlchemyError as e:
-            raise UserNotFoundException(email) from e
+            raise UserNotFoundError(email) from e

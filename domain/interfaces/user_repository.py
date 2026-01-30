@@ -18,7 +18,7 @@ class UserRepositoryInterface(ABC):
 
         Raises:
             ValueError: If user data is invalid
-            UserAlreadyExistsException: If a user with the same email already exists
+            UserAlreadyExistsError: If a user with the same email already exists
         """
         pass
 
@@ -34,7 +34,7 @@ class UserRepositoryInterface(ABC):
             UserModel: The updated user
 
         Raises:
-            UserNotFoundException: If the user doesn't exist
+            UserNotFoundError: If the user doesn't exist
             UserUpdateError: If the update operation fails
         """
         pass

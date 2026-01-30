@@ -6,10 +6,10 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi.responses import JSONResponse
-from domain.exceptions.auth_exceptions import (
-    MissingPermissionException,
-    MissingRoleException,
-    UnauthorizedUserException
+from domain.exceptions.auth_errors import (
+    MissingPermissionError,
+    MissingRoleError,
+    UnauthorizedUserError
 )
 from application.routers import auth_router, user_profile_router
 
@@ -43,8 +43,8 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(MissingPermissionException)
-async def permission_exception_handler(request, exc: MissingPermissionException):
+@app.exception_handler(MissingPermissionError)
+async def permission_exception_handler(request, exc: MissingPermissionError):
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
         content={
@@ -55,8 +55,8 @@ async def permission_exception_handler(request, exc: MissingPermissionException)
     )
 
 
-@app.exception_handler(MissingRoleException)
-async def permission_exception_handler(request, exc: MissingRoleException):
+@app.exception_handler(MissingRoleError)
+async def permission_exception_handler(request, exc: MissingRoleError):
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
         content={
@@ -66,8 +66,8 @@ async def permission_exception_handler(request, exc: MissingRoleException):
     )
 
 
-@app.exception_handler(UnauthorizedUserException)
-async def unauthorized_exception_handler(request, exc: UnauthorizedUserException):
+@app.exception_handler(UnauthorizedUserError)
+async def unauthorized_exception_handler(request, exc: UnauthorizedUserError):
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
         content={"detail": str(exc)}

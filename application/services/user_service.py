@@ -2,7 +2,7 @@ from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
 from domain.entities.user_model import UserModel
 from domain.entities.role_model import RoleModel
-from domain.exceptions.auth_exceptions import UserCreationError, PasswordChangeError
+from domain.exceptions.auth_errors import UserCreationError, PasswordChangeError
 from core.security import get_bcrypt_context
 from core.password_validator import PasswordValidator
 from uuid import UUID
@@ -69,7 +69,7 @@ class UserService:
             UserModel: The updated user entity
 
         Raises:
-            UserNotFoundException: If the user doesn't exist
+            UserNotFoundError: If the user doesn't exist
             UserUpdateError: If the update operation fails
         """
         return await self.user_repo.update_user(user)
@@ -85,7 +85,7 @@ class UserService:
             bool: True if activation was successful
 
         Raises:
-            UserNotFoundException: If the user doesn't exist
+            UserNotFoundError: If the user doesn't exist
             UserUpdateError: If the update operation fails
         """
         user_data = await self.user_repo.get_by_id(user_id)

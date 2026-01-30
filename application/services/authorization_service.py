@@ -1,6 +1,6 @@
 from typing import List
 from domain.entities.user_model import UserWithRolesModel
-from domain.exceptions.auth_exceptions import MissingPermissionException, MissingRoleException
+from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 from infrastructure.repositories.role_repository import RoleRepository
 from core.settings import app_settings
 
@@ -31,7 +31,7 @@ class AuthorizationService:
             bool: True if user has permission
             
         Raises:
-            MissingPermissionException: If user lacks required permission
+            MissingPermissionError: If user lacks required permission
         """
         # Check permission with service scope
         has_permission = await self.role_repo.check_user_permission(
@@ -42,7 +42,7 @@ class AuthorizationService:
         )
         
         if not has_permission:
-            raise MissingPermissionException(resource, action)
+            raise MissingPermissionError(resource, action)
         
         return True
     
@@ -67,7 +67,7 @@ class AuthorizationService:
             bool: True if user has permission
             
         Raises:
-            MissingPermissionException: If user lacks required permission
+            MissingPermissionError: If user lacks required permission
         """
         has_permission = await self.role_repo.check_user_permission(
             user.user,
@@ -77,7 +77,7 @@ class AuthorizationService:
         )
         
         if not has_permission:
-            raise MissingPermissionException(resource, action)
+            raise MissingPermissionError(resource, action)
         
         return True
     
@@ -99,7 +99,7 @@ class AuthorizationService:
             bool: True if user has role
             
         Raises:
-            MissingRoleException: If user lacks required role
+            MissingRoleError: If user lacks required role
         """
         target_service = service_name or self.service_name
         
@@ -110,7 +110,7 @@ class AuthorizationService:
         ]
         
         if not matching_roles:
-            raise MissingRoleException(role_name)
+            raise MissingRoleError(role_name)
         
         return True
     

@@ -12,7 +12,7 @@ from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
 from application.services.authorization_service import AuthorizationService
 from domain.entities.user_model import UserWithRolesModel
-from domain.exceptions.auth_exceptions import MissingPermissionException, MissingRoleException
+from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
@@ -103,7 +103,7 @@ def require_permission(resource: str, action: str):
         if has_permission:
             return current_user
 
-        raise MissingPermissionException(resource=resource, action=action)
+        raise MissingPermissionError(resource=resource, action=action)
     return permission_checker
 
 
@@ -124,7 +124,7 @@ def require_role(role_name: str):
         if has_role:
             return True
 
-        raise MissingRoleException(role_name)
+        raise MissingRoleError(role_name)
     return role_checker
 
 

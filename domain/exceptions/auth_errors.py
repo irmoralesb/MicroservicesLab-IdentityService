@@ -14,7 +14,7 @@ class UserUpdateError(Exception):
         super().__init__(f"User with email '{email}' cannot be updated")
 
 
-class UserAlreadyExistsException(Exception):
+class UserAlreadyExistsError(Exception):
     """Raised when a user already exists in the database"""
 
     def __init__(self, email: str):
@@ -22,7 +22,7 @@ class UserAlreadyExistsException(Exception):
         super().__init__(f"User with email '{email}' already exists")
 
 
-class UserNotFoundException(Exception):
+class UserNotFoundError(Exception):
     """Raised when a user is not found"""
 
     def __init__(self, email: str):
@@ -30,7 +30,7 @@ class UserNotFoundException(Exception):
         super().__init__(f"User with email '{email}' not found")
 
 
-class UnauthorizedUserException(Exception):
+class UnauthorizedUserError(Exception):
     """Raised when a user is not authorized to perform an action"""
 
     def __init__(self, message: str = "User is not authorized to perform this action"):
@@ -38,7 +38,7 @@ class UnauthorizedUserException(Exception):
         super().__init__(self.message)
 
 
-class InactiveUserException(Exception):
+class InactiveUserError(Exception):
     """Raised when a user account is inactive"""
 
     def __init__(self, email: str):
@@ -46,7 +46,7 @@ class InactiveUserException(Exception):
         super().__init__(f"User account '{email}' is not active")
 
 
-class MissingRoleException(Exception):
+class MissingRoleError(Exception):
     """Raised when a user doesn't have required role"""
 
     def __init__(self, role_name: str):
@@ -54,7 +54,7 @@ class MissingRoleException(Exception):
         super().__init__(f"User does not have required role: '{role_name}'")
 
 
-class MissingPermissionException(Exception):
+class MissingPermissionError(Exception):
     """Raised when a user doesn't have required permission"""
 
     def __init__(self, resource: str, action: str):
@@ -64,7 +64,7 @@ class MissingPermissionException(Exception):
             f"User does not have permission to {action} {resource}")
 
 
-class AccountLockedException(Exception):
+class AccountLockedError(Exception):
     """Raised when a user account is temporarily locked due to failed login attempts"""
 
     def __init__(self, locked_until: str):
@@ -73,7 +73,7 @@ class AccountLockedException(Exception):
             f"Account is temporarily locked. Please try again after {locked_until}")
 
 
-class InvalidPasswordException(Exception):
+class InvalidPasswordError(Exception):
     """Raised when password does not meet security requirements"""
 
     def __init__(self, errors: list[str]):

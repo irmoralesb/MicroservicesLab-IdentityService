@@ -1,6 +1,6 @@
 from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
-from domain.exceptions.roles_exceptions import AssignUserRoleError, RoleNotFound
+from domain.exceptions.roles_errors import AssignUserRoleError, RoleNotFoundError
 from domain.interfaces.role_repository import RoleRepositoryInterface
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,13 +42,13 @@ class RoleRepository(RoleRepositoryInterface):
             user_role_info = result.scalars().first()
 
             if not user_role_info:
-                raise RoleNotFound(role_name)
+                raise RoleNotFoundError(role_name)
 
             return self._to_domain(user_role_info)
-        except RoleNotFound:
+        except RoleNotFoundError:
             raise
         except SQLAlchemyError as e:
-            raise RoleNotFound(role_name) from e
+            raise RoleNotFoundError(role_name) from e
 
     async def assign_role(self, user: UserModel, role: RoleModel) -> bool:
         if user is None:

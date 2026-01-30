@@ -1,4 +1,4 @@
-class RoleNotFound(Exception):
+class RoleNotFoundError(Exception):
     """Raised when the role can't be found"""
     def __init__(self, role_name: str):
         self.role_name = role_name

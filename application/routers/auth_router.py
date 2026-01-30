@@ -7,9 +7,9 @@ from application.schemas import auth_schemas as schema
 from application.routers.dependency_utils import (
     UserSvcDep, AuthSvcDep, TokenSvcDep, require_role ,require_permission, CurrentUserDep)
 from domain.entities.user_model import UserModel, UserWithRolesModel
-from domain.exceptions.auth_exceptions import (
-    MissingPermissionException, 
-    AccountLockedException,
+from domain.exceptions.auth_errors import (
+    MissingPermissionError,
+    AccountLockedError,
     PasswordChangeError
 )
 from core.password_validator import PasswordValidationError
@@ -42,7 +42,7 @@ async def create_user(
         
         return schema.UserResponse.from_UserModel(created_user)
         
-    except MissingPermissionException as e:
+    except MissingPermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
@@ -67,7 +67,7 @@ async def login_for_access_token(
             form_data.username,
             form_data.password
         )
-    except AccountLockedException as e:
+    except AccountLockedError as e:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
             detail=str(e)

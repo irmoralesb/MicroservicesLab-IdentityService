@@ -1,6 +1,6 @@
 from infrastructure.repositories.user_repository import UserRepository
 from domain.entities.user_model import UserModel
-from domain.exceptions.auth_exceptions import AccountLockedException
+from domain.exceptions.auth_errors import AccountLockedError
 from core.security import get_bcrypt_context
 from datetime import datetime, timedelta, timezone
 
@@ -24,7 +24,7 @@ class AuthenticateService():
             UserModel if authentication successful, None otherwise
             
         Raises:
-            AccountLockedException: If account is temporarily locked
+            AccountLockedError: If account is temporarily locked
         """
         user = await self.user_repo.get_by_email(email)
 
@@ -49,7 +49,7 @@ class AuthenticateService():
                 locked_until_aware = user.locked_until
             
             if locked_until_aware > now_utc:
-                raise AccountLockedException(
+                raise AccountLockedError(
                     locked_until=locked_until_aware.strftime("%Y-%m-%d %H:%M:%S UTC")
                 )
 
