@@ -6,6 +6,7 @@ from domain.exceptions.auth_errors import UserCreationError, PasswordChangeError
 from core.security import get_bcrypt_context
 from core.password_validator import PasswordValidator
 from uuid import UUID
+from typing import List
 
 
 class UserService:
@@ -44,7 +45,6 @@ class UserService:
 
         return new_user
 
-    # TODO: VALIDATE WHAT CALLER HAS PERMISSION
     async def get_user_profile(self, user_id: UUID) -> UserModel | None:
         """
         Retrieve a user's profile by their ID.
@@ -57,6 +57,16 @@ class UserService:
         """
         user_data = await self.user_repo.get_by_id(user_id)
         return None if user_data is None else user_data
+
+    async def get_user_list(self) -> List[UserModel]:
+        """
+        Get all users in the application
+
+        Returns:
+            The user list
+        """
+        user_list = await self.user_repo.get_user_list()
+        return user_list
 
     async def update_user_profile(self, user: UserModel) -> UserModel:
         """
@@ -92,11 +102,11 @@ class UserService:
         user_data.is_active = True
         await self.user_repo.update_user(user_data)
         return True
-    
+
     async def deactivate_user(self, user_id: UUID) -> bool:
         """
         Deactivate a user account by setting is_active to False
-        
+
         Args:
             user_id: UUID of the user to deacticate
 
@@ -109,22 +119,22 @@ class UserService:
         return True
 
     async def change_password(
-        self, 
-        user_id: UUID, 
-        current_password: str, 
+        self,
+        user_id: UUID,
+        current_password: str,
         new_password: str
     ) -> bool:
         """
         Change a user's password after validating current password and new password requirements.
-        
+
         Args:
             user_id: UUID of the user changing password
             current_password: User's current password for verification
             new_password: New password to set
-            
+
         Returns:
             bool: True if password change was successful
-            
+
         Raises:
             PasswordChangeError: If current password is incorrect or user not found
         """
@@ -132,17 +142,16 @@ class UserService:
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise PasswordChangeError("User not found")
-        
+
         # Verify current password
         if not get_bcrypt_context().verify(current_password, user.hashed_password):
             raise PasswordChangeError("Current password is incorrect")
-        
+
         # Validate new password
         PasswordValidator.validate(new_password)
-        
+
         # Hash and set new password
         user.hashed_password = get_bcrypt_context().hash(new_password)
         await self.user_repo.update_user(user)
-        
-        return True
 
+        return True

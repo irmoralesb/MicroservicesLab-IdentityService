@@ -5,13 +5,13 @@ from application.routers.dependency_utils import (
 from uuid import UUID
 
 router = APIRouter(
-    prefix='/api/v1/userprofile',
-    tags=["auth"],
+    prefix='/api/v1/profile',
+    tags=["profile"],
     dependencies=[Depends(get_authenticated_user)]
 )
 
 
-@router.get("/profile", response_model=UserProfileResponse)
+@router.get("", response_model=UserProfileResponse)
 async def get_current_user(
         current_user: CurrentUserDep,
         user_svc: UserSvcDep):
@@ -36,7 +36,24 @@ async def get_current_user(
                             detail="Error validating token data.")
 
 
-@router.put("/profile", response_model=UserProfileResponse)
+@router.get("/all",
+            dependencies=[Depends(require_role("admin")), Depends(
+                require_permission("user", "read"))],
+            status_code=status.HTTP_200_OK)
+async def get_all_users(user_svc: UserSvcDep):
+    try:
+        user_list = await user_svc.get_user_list()
+
+        return [UserProfileResponse.from_user_model(user) for user in user_list]
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while processing the request."
+        )
+
+
+@router.put("", response_model=UserProfileResponse)
 async def update_current_user(
     update_user_request: UpdateProfileRequest,
     current_user: CurrentUserDep,
@@ -71,7 +88,7 @@ async def update_current_user(
                             detail="Error updating the user.")
 
 
-@router.put("/profile/{user_id}/activate",
+@router.put("/{user_id}/activate",
             dependencies=[Depends(require_role("admin")), Depends(
                 require_permission("user", "update"))],
             status_code=status.HTTP_202_ACCEPTED)
@@ -79,7 +96,7 @@ async def activate_user(
     user_id: UUID,
     user_svc: UserSvcDep
 ):
-    
+
     try:
         user_to_activate = user_svc.get_user_profile(user_id)
 
@@ -95,16 +112,17 @@ async def activate_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error activating the user"
         )
-    
-@router.put("/profile/{user_id}/deactivate",
-        dependencies=[Depends(require_role("admin")), Depends(
-            require_permission("user", "update"))],
-        status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.put("/{user_id}/deactivate",
+            dependencies=[Depends(require_role("admin")), Depends(
+                require_permission("user", "update"))],
+            status_code=status.HTTP_202_ACCEPTED)
 async def deactivate_user(
     user_id: UUID,
     user_svc: UserSvcDep
 ):
-    
+
     try:
         user_to_activate = user_svc.get_user_profile(user_id)
 

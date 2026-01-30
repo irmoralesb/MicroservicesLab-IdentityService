@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from domain.entities.user_model import UserModel
@@ -10,6 +11,23 @@ from domain.exceptions.auth_errors import (
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
+from datetime import datetime
+import re
+
+_DATETIMEOFFSET_RE = re.compile(
+    r"^(?P<base>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+    r"(?:\.(?P<frac>\d{1,7}))? (?P<tz>[+-]\d{2}:\d{2})$"
+)
+
+def _parse_mssql_datetime(value: datetime | str | None) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    match = _DATETIMEOFFSET_RE.match(value)
+    if not match:
+        return datetime.fromisoformat(value)
+    frac = (match.group("frac") or "0").ljust(6, "0")[:6]
+    normalized = f"{match.group('base')}.{frac}{match.group('tz')}"
+    return datetime.fromisoformat(normalized)
 
 
 class UserRepository(UserRepositoryInterface):
@@ -23,8 +41,8 @@ class UserRepository(UserRepositoryInterface):
             middle_name=db_user.middle_name,
             last_name=db_user.last_name,
             email=db_user.email,
-            created_at=db_user.created_at,
-            updated_at=db_user.updated_at,
+            created_at=_parse_mssql_datetime(db_user.created_at),
+            updated_at=_parse_mssql_datetime(db_user.updated_at),
             is_active=db_user.is_active,
             is_verified=db_user.is_verified,
             hashed_password=db_user.hashed_password,
@@ -103,7 +121,6 @@ class UserRepository(UserRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise UserUpdateError(user.email) from e
-        
 
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""
@@ -140,3 +157,12 @@ class UserRepository(UserRepositoryInterface):
             return False if existing_user is None else True
         except SQLAlchemyError as e:
             raise UserNotFoundError(email) from e
+
+    async def get_user_list(self) -> List[UserModel]:
+        try:
+            get_all_users_stmt = select(UserDataModel)
+            result = await self.db.execute(get_all_users_stmt)
+            users_datamodel = result.scalars().all()
+            return [self._to_domain(user) for user in users_datamodel]
+        except SQLAlchemyError as e:
+            raise UserNotFoundError from e

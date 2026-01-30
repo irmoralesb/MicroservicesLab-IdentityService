@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 from domain.entities.user_model import UserModel
 from uuid import UUID
 
@@ -76,5 +77,15 @@ class UserRepositoryInterface(ABC):
 
         Returns:
             bool: True if user exists, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def get_user_list(self) -> List[UserModel]:
+        """
+        Get all users in the application
+
+        Returns:
+            List[UserModel]: Returns the list of users in the application
         """
         pass
