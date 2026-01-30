@@ -12,6 +12,11 @@ from infrastructure.databases.models import (
     PermissionsDataModel,
     UserPermissionsDataModel)
 from typing import List
+import time
+from infrastructure.observability.metrics.prometheus import (
+    record_database_metrics,
+    record_permission_check_metrics
+)
 
 
 class RoleRepository(RoleRepositoryInterface):
@@ -35,6 +40,7 @@ class RoleRepository(RoleRepositoryInterface):
         )
 
     async def get_by_name(self, role_name: str) -> RoleModel:
+        start_time = time.perf_counter()
         try:
             role_info_stmt = select(RolesDataModel).where(
                 RolesDataModel.name == role_name)
@@ -43,11 +49,33 @@ class RoleRepository(RoleRepositoryInterface):
 
             if not user_role_info:
                 raise RoleNotFoundError(role_name)
+            
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='roles',
+                duration=duration,
+                status='success'
+            )
 
             return self._to_domain(user_role_info)
         except RoleNotFoundError:
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='roles',
+                duration=duration,
+                status='error'
+            )
             raise
         except SQLAlchemyError as e:
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='roles',
+                duration=duration,
+                status='error'
+            )
             raise RoleNotFoundError(role_name) from e
 
     async def assign_role(self, user: UserModel, role: RoleModel) -> bool:
@@ -59,6 +87,7 @@ class RoleRepository(RoleRepositoryInterface):
             raise ValueError(
                 "Cannot assign role to the user, no role data was provided.")
 
+        start_time = time.perf_counter()
         try:
             create_user_role: UserRolesDataModel = UserRolesDataModel(
                 user_id=user.id,
@@ -68,9 +97,24 @@ class RoleRepository(RoleRepositoryInterface):
             self.db.add(create_user_role)
             await self.db.commit()
             await self.db.refresh(create_user_role)
+            
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='insert',
+                table='user_roles',
+                duration=duration,
+                status='success'
+            )
             return True
         except SQLAlchemyError as e:
             await self.db.rollback()
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='insert',
+                table='user_roles',
+                duration=duration,
+                status='error'
+            )
             raise AssignUserRoleError(
                 f"Error assigning role '{role.name}' to user {user.id}: {str(e)}"
             ) from e
@@ -80,13 +124,29 @@ class RoleRepository(RoleRepositoryInterface):
             raise ValueError(
                 "Cannot get user roles, no user data was provided")
 
+        start_time = time.perf_counter()
         try:
             get_role_stmt = select(RolesDataModel).join(
                 UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id).where(UserRolesDataModel.user_id == user.id)
             result = await self.db.execute(get_role_stmt)
             role_data = result.scalars().all()
+            
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='roles',
+                duration=duration,
+                status='success'
+            )
             return [self._to_domain(role) for role in role_data]
         except SQLAlchemyError as e:
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='roles',
+                duration=duration,
+                status='error'
+            )
             raise AssignUserRoleError(
                 f"Error fetching roles for user {user.id}: {str(e)}")
 
@@ -112,6 +172,7 @@ class RoleRepository(RoleRepositoryInterface):
         if user is None or user.id is None:
             return False
 
+        start_time = time.perf_counter()
         try:
             # Role base permission
             check_role_permission_stmt = select(RolesDataModel).join(
@@ -134,6 +195,19 @@ class RoleRepository(RoleRepositoryInterface):
             role_permission = result.scalars().first()
 
             if role_permission:
+                duration = time.perf_counter() - start_time
+                record_permission_check_metrics(
+                    resource=resource,
+                    action=action,
+                    result='allowed',
+                    duration=duration
+                )
+                record_database_metrics(
+                    operation_type='select',
+                    table='permissions',
+                    duration=duration,
+                    status='success'
+                )
                 return True
 
             # Check direct user permissions
@@ -149,10 +223,33 @@ class RoleRepository(RoleRepositoryInterface):
 
             result = await self.db.execute(check_user_permission_stmt)
             user_permission = result.scalars().first()
+            
+            duration = time.perf_counter() - start_time
+            has_permission = user_permission is not None
+            
+            record_permission_check_metrics(
+                resource=resource,
+                action=action,
+                result='allowed' if has_permission else 'denied',
+                duration=duration
+            )
+            record_database_metrics(
+                operation_type='select',
+                table='permissions',
+                duration=duration,
+                status='success'
+            )
 
-            return user_permission is not None
+            return has_permission
 
         except SQLAlchemyError as e:
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='permissions',
+                duration=duration,
+                status='error'
+            )
             raise AssignUserRoleError(
                 f"Error checking permissions for user {user.id}: {str(e)}"
             ) from e
@@ -177,6 +274,7 @@ class RoleRepository(RoleRepositoryInterface):
             return []
 
         permissions = []
+        start_time = time.perf_counter()
 
         try:
 
@@ -233,9 +331,24 @@ class RoleRepository(RoleRepositoryInterface):
                     'name': perm.name,
                     'source': 'direct'
                 })
+            
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='permissions',
+                duration=duration,
+                status='success'
+            )
 
             return permissions
         except SQLAlchemyError as e:
+            duration = time.perf_counter() - start_time
+            record_database_metrics(
+                operation_type='select',
+                table='permissions',
+                duration=duration,
+                status='error'
+            )
             raise AssignUserRoleError(
                 f"Error fetching permissions for user {user.id}: {str(e)}"
             )
