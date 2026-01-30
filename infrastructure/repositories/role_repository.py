@@ -35,15 +35,20 @@ class RoleRepository(RoleRepositoryInterface):
         )
 
     async def get_by_name(self, role_name: str) -> RoleModel:
-        role_info_stmt = select(RolesDataModel).where(
-            RolesDataModel.name == role_name)
-        result = await self.db.execute(role_info_stmt)
-        user_role_info = result.scalars().first()
+        try:
+            role_info_stmt = select(RolesDataModel).where(
+                RolesDataModel.name == role_name)
+            result = await self.db.execute(role_info_stmt)
+            user_role_info = result.scalars().first()
 
-        if not user_role_info:
-            raise RoleNotFound(role_name)
+            if not user_role_info:
+                raise RoleNotFound(role_name)
 
-        return self._to_domain(user_role_info)
+            return self._to_domain(user_role_info)
+        except RoleNotFound:
+            raise
+        except SQLAlchemyError as e:
+            raise RoleNotFound(role_name) from e
 
     async def assign_role(self, user: UserModel, role: RoleModel) -> bool:
         if user is None:
@@ -66,7 +71,9 @@ class RoleRepository(RoleRepositoryInterface):
             return True
         except SQLAlchemyError as e:
             await self.db.rollback()
-            return False
+            raise AssignUserRoleError(
+                f"Error assigning role '{role.name}' to user {user.id}: {str(e)}"
+            ) from e
 
     async def get_user_roles(self, user: UserModel) -> List[RoleModel]:
         if user is None:
@@ -146,8 +153,9 @@ class RoleRepository(RoleRepositoryInterface):
             return user_permission is not None
 
         except SQLAlchemyError as e:
-            # Log error
-            return False
+            raise AssignUserRoleError(
+                f"Error checking permissions for user {user.id}: {str(e)}"
+            ) from e
 
     async def get_user_permissions(
         self,

@@ -11,8 +11,6 @@ from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 
-# TODO: CATCH ALL SQLALCHEMY EXCEPTIONS AND RETHROW USING DOMAIN EXCEPTIONS
-
 
 class UserRepository(UserRepositoryInterface):
     def __init__(self, db: AsyncSession):
@@ -89,48 +87,56 @@ class UserRepository(UserRepositoryInterface):
         if user is None or user.id is None:
             raise UserNotFoundException(user.email)
 
-        get_user_to_update_stmt = select(UserDataModel).where(
-            UserDataModel.id == user.id
-        )
-        result = await self.db.execute(get_user_to_update_stmt)
-        user_to_update = result.scalars().first()
-
-        if user_to_update is None:
-            raise UserNotFoundException(user.email)
-
         try:
+            get_user_to_update_stmt = select(UserDataModel).where(
+                UserDataModel.id == user.id
+            )
+            result = await self.db.execute(get_user_to_update_stmt)
+            user_to_update = result.scalars().first()
+
+            if user_to_update is None:
+                raise UserNotFoundException(user.email)
             self._update_datamodel(user, user_to_update)
             await self.db.commit()
             await self.db.refresh(user_to_update)
             return self._to_domain(user_to_update)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise UserUpdateError(user.email)
+            raise UserUpdateError(user.email) from e
         
 
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""
-        check_user_email_stmt = select(UserDataModel).where(
-            UserDataModel.email == email)
-        result = await self.db.execute(check_user_email_stmt)
-        existing_user = result.scalars().first()
+        try:
+            check_user_email_stmt = select(UserDataModel).where(
+                UserDataModel.email == email)
+            result = await self.db.execute(check_user_email_stmt)
+            existing_user = result.scalars().first()
 
-        return None if existing_user is None else self._to_domain(existing_user)
+            return None if existing_user is None else self._to_domain(existing_user)
+        except SQLAlchemyError as e:
+            raise UserNotFoundException(email) from e
 
     async def get_by_id(self, id: UUID) -> UserModel | None:
         """Get user by id"""
-        get_user_stmt = select(UserDataModel).where(
-            UserDataModel.id == id
-        )
-        result = await self.db.execute(get_user_stmt)
-        exiting_user = result.scalars().first()
-        return None if exiting_user is None else self._to_domain(exiting_user)
+        try:
+            get_user_stmt = select(UserDataModel).where(
+                UserDataModel.id == id
+            )
+            result = await self.db.execute(get_user_stmt)
+            exiting_user = result.scalars().first()
+            return None if exiting_user is None else self._to_domain(exiting_user)
+        except SQLAlchemyError as e:
+            raise UserNotFoundException(str(id)) from e
 
     async def exists_by_email(self, email: str) -> bool:
         """Check the user exist by email"""
-        check_user_email_stmt = select(UserDataModel).where(
-            UserDataModel.email == email)
-        result = await self.db.execute(check_user_email_stmt)
-        existing_user = result.scalars().first()
+        try:
+            check_user_email_stmt = select(UserDataModel).where(
+                UserDataModel.email == email)
+            result = await self.db.execute(check_user_email_stmt)
+            existing_user = result.scalars().first()
 
-        return False if existing_user is None else True
+            return False if existing_user is None else True
+        except SQLAlchemyError as e:
+            raise UserNotFoundException(email) from e

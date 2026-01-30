@@ -1,4 +1,3 @@
-from uuid import UUID
 from datetime import datetime, timedelta, timezone
 import jwt
 from domain.entities.token_model import TokenPayload

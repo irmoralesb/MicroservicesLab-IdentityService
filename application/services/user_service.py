@@ -4,7 +4,7 @@ from domain.entities.user_model import UserModel
 from domain.entities.role_model import RoleModel
 from domain.exceptions.auth_exceptions import UserCreationError, PasswordChangeError
 from core.security import get_bcrypt_context
-from core.password_validator import PasswordValidator, PasswordValidationError
+from core.password_validator import PasswordValidator
 from uuid import UUID
 
 
@@ -127,7 +127,6 @@ class UserService:
             
         Raises:
             PasswordChangeError: If current password is incorrect or user not found
-            PasswordValidationError: If new password doesn't meet requirements
         """
         # Get user
         user = await self.user_repo.get_by_id(user_id)

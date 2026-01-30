@@ -1,6 +1,5 @@
 from typing import List
 from domain.entities.user_model import UserWithRolesModel
-from domain.entities.role_model import RoleModel
 from domain.exceptions.auth_exceptions import MissingPermissionException, MissingRoleException
 from infrastructure.repositories.role_repository import RoleRepository
 from core.settings import app_settings
