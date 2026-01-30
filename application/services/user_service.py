@@ -7,11 +7,9 @@ from core.security import get_bcrypt_context
 from core.password_validator import PasswordValidator
 from uuid import UUID
 from typing import List
-import time
-from infrastructure.observability.metrics.prometheus import (
-    record_user_operation_metrics,
-    record_password_operation_metrics,
-    record_security_event
+from infrastructure.observability.metrics.decorators import (
+    track_user_operation,
+    track_password_operation
 )
 
 
@@ -27,6 +25,7 @@ class UserService:
         self.user_repo = user_repo
         self.role_repo = role_repo
 
+    @track_user_operation(operation_type='create')
     async def create_user_with_default_role(self, user: UserModel, default_role_name: str) -> UserModel:
         """
         Create a new user and assign them the default role
@@ -41,40 +40,15 @@ class UserService:
         Raises:
             UserCreationError: If user creation or role assignment fails
         """
-        start_time = time.perf_counter()
-        
-        try:
-            user_default_role: RoleModel = await self.role_repo.get_by_name(default_role_name)
-            new_user: UserModel = await self.user_repo.create_user(user)
+        user_default_role: RoleModel = await self.role_repo.get_by_name(default_role_name)
+        new_user: UserModel = await self.user_repo.create_user(user)
 
-            is_success = bool = await self.role_repo.assign_role(new_user, user_default_role)
+        is_success = bool = await self.role_repo.assign_role(new_user, user_default_role)
 
-            if not is_success:
-                duration = time.perf_counter() - start_time
-                record_user_operation_metrics(
-                    operation_type='create',
-                    duration=duration,
-                    status='failure'
-                )
-                raise UserCreationError("Failed to assign default role to user")
+        if not is_success:
+            raise UserCreationError("Failed to assign default role to user")
 
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='create',
-                duration=duration,
-                status='success'
-            )
-            return new_user
-        except UserCreationError:
-            raise
-        except Exception as e:
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='create',
-                duration=duration,
-                status='failure'
-            )
-            raise
+        return new_user
 
     async def get_user_profile(self, user_id: UUID) -> UserModel | None:
         """
@@ -115,6 +89,7 @@ class UserService:
         """
         return await self.user_repo.update_user(user)
 
+    @track_user_operation(operation_type='activate')
     async def activate_user(self, user_id: UUID) -> bool:
         """
         Activate a user account by setting is_active to True.
@@ -129,29 +104,12 @@ class UserService:
             UserNotFoundError: If the user doesn't exist
             UserUpdateError: If the update operation fails
         """
-        start_time = time.perf_counter()
-        
-        try:
-            user_data = await self.user_repo.get_by_id(user_id)
-            user_data.is_active = True
-            await self.user_repo.update_user(user_data)
-            
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='activate',
-                duration=duration,
-                status='success'
-            )
-            return True
-        except Exception:
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='activate',
-                duration=duration,
-                status='failure'
-            )
-            raise
+        user_data = await self.user_repo.get_by_id(user_id)
+        user_data.is_active = True
+        await self.user_repo.update_user(user_data)
+        return True
 
+    @track_user_operation(operation_type='deactivate')
     async def deactivate_user(self, user_id: UUID) -> bool:
         """
         Deactivate a user account by setting is_active to False
@@ -162,29 +120,12 @@ class UserService:
         Returns:
             bool: True if deactivation was successful
         """
-        start_time = time.perf_counter()
-        
-        try:
-            user_data = await self.user_repo.get_by_id(user_id)
-            user_data.is_active = False
-            await self.user_repo.update_user(user_data)
-            
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='deactivate',
-                duration=duration,
-                status='success'
-            )
-            return True
-        except Exception:
-            duration = time.perf_counter() - start_time
-            record_user_operation_metrics(
-                operation_type='deactivate',
-                duration=duration,
-                status='failure'
-            )
-            raise
+        user_data = await self.user_repo.get_by_id(user_id)
+        user_data.is_active = False
+        await self.user_repo.update_user(user_data)
+        return True
 
+    @track_password_operation(operation_type='change', record_security=True)
     async def change_password(
         self,
         user_id: UUID,
@@ -208,42 +149,17 @@ class UserService:
         # Get user
         user = await self.user_repo.get_by_id(user_id)
         if not user:
-            record_password_operation_metrics(
-                operation_type='change',
-                status='failure'
-            )
             raise PasswordChangeError("User not found")
 
         # Verify current password
         if not get_bcrypt_context().verify(current_password, user.hashed_password):
-            record_password_operation_metrics(
-                operation_type='change',
-                status='failure'
-            )
             raise PasswordChangeError("Current password is incorrect")
 
         # Validate new password
-        try:
-            PasswordValidator.validate(new_password)
-        except Exception:
-            record_password_operation_metrics(
-                operation_type='change',
-                status='failure'
-            )
-            raise
+        PasswordValidator.validate(new_password)
 
         # Hash and set new password
         user.hashed_password = get_bcrypt_context().hash(new_password)
         await self.user_repo.update_user(user)
-        
-        # Record successful password change with security event
-        record_password_operation_metrics(
-            operation_type='change',
-            status='success'
-        )
-        record_security_event(
-            event_type='password_changed',
-            severity='low'
-        )
 
         return True

@@ -4,8 +4,7 @@ from domain.entities.token_model import TokenPayload
 from domain.entities.user_model import UserModel, UserWithRolesModel
 from infrastructure.repositories.role_repository import RoleRepository
 from infrastructure.repositories.user_repository import UserRepository
-import time
-from infrastructure.observability.metrics.prometheus import record_token_metrics
+from infrastructure.observability.metrics.decorators import track_token_operation
 
 
 class TokenService:
@@ -17,6 +16,7 @@ class TokenService:
         self.role_repo = role_repo
         self.user_repo = user_repo
     
+    @track_token_operation(operation_type='generate', token_type='access')
     async def create_access_token(
         self,
         user: UserModel,
@@ -32,7 +32,6 @@ class TokenService:
         Returns:
             Encoded JWT token string
         """
-        start_time = time.perf_counter()
         now = datetime.now(timezone.utc)
         
         if user.id is None:
@@ -66,20 +65,7 @@ class TokenService:
             "iat": payload.iat
         }
 
-        token = jwt.encode(token_data, self.secret_key, algorithm=self.algorithm)
-        
-        # Record token generation metrics
-        duration = time.perf_counter() - start_time
-        expiration_seconds = int(expires_delta.total_seconds())
-        record_token_metrics(
-            operation_type='generate',
-            token_type='access',
-            duration=duration,
-            status='success',
-            expiration_seconds=expiration_seconds
-        )
-        
-        return token
+        return jwt.encode(token_data, self.secret_key, algorithm=self.algorithm)
     
     async def get_user(self, token: str) -> UserWithRolesModel:
         

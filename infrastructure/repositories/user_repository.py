@@ -13,8 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 from datetime import datetime
 import re
-import time
-from infrastructure.observability.metrics.prometheus import record_database_metrics
+from infrastructure.observability.metrics.decorators import track_database_operation
 
 _DATETIMEOFFSET_RE = re.compile(
     r"^(?P<base>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
@@ -80,6 +79,7 @@ class UserRepository(UserRepositoryInterface):
         user_data.locked_until = user.locked_until
         user_data.hashed_password = user.hashed_password
 
+    @track_database_operation(operation_type='insert', table='users')
     async def create_user(self, user: UserModel) -> UserModel:
         """Add a new user"""
         if user is None:
@@ -90,40 +90,24 @@ class UserRepository(UserRepositoryInterface):
         if user_exists:
             raise UserAlreadyExistsError(user.email)
 
-        start_time = time.perf_counter()
         try:
             create_user_model = self._to_datamodel(user)
             self.db.add(create_user_model)
             await self.db.commit()
             await self.db.refresh(create_user_model)
-            
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='insert',
-                table='users',
-                duration=duration,
-                status='success'
-            )
 
             return self._to_domain(create_user_model)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='insert',
-                table='users',
-                duration=duration,
-                status='error'
-            )
             raise UserCreationError(user.email) from e
 
+    @track_database_operation(operation_type='update', table='users')
     async def update_user(self, user: UserModel) -> UserModel:
         """Update existing user"""
 
         if user is None or user.id is None:
             raise UserNotFoundError(user.email)
 
-        start_time = time.perf_counter()
         try:
             get_user_to_update_stmt = select(UserDataModel).where(
                 UserDataModel.id == user.id
@@ -136,80 +120,35 @@ class UserRepository(UserRepositoryInterface):
             self._update_datamodel(user, user_to_update)
             await self.db.commit()
             await self.db.refresh(user_to_update)
-            
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='update',
-                table='users',
-                duration=duration,
-                status='success'
-            )
             return self._to_domain(user_to_update)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='update',
-                table='users',
-                duration=duration,
-                status='error'
-            )
             raise UserUpdateError(user.email) from e
 
+    @track_database_operation(operation_type='select', table='users')
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""
-        start_time = time.perf_counter()
         try:
             check_user_email_stmt = select(UserDataModel).where(
                 UserDataModel.email == email)
             result = await self.db.execute(check_user_email_stmt)
             existing_user = result.scalars().first()
-            
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='success'
-            )
 
             return None if existing_user is None else self._to_domain(existing_user)
         except SQLAlchemyError as e:
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='error'
-            )
             raise UserNotFoundError(email) from e
 
+    @track_database_operation(operation_type='select', table='users')
     async def get_by_id(self, id: UUID) -> UserModel | None:
         """Get user by id"""
-        start_time = time.perf_counter()
         try:
             get_user_stmt = select(UserDataModel).where(
                 UserDataModel.id == id
             )
             result = await self.db.execute(get_user_stmt)
             exiting_user = result.scalars().first()
-            
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='success'
-            )
             return None if exiting_user is None else self._to_domain(exiting_user)
         except SQLAlchemyError as e:
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='error'
-            )
             raise UserNotFoundError(str(id)) from e
 
     async def exists_by_email(self, email: str) -> bool:
@@ -224,27 +163,12 @@ class UserRepository(UserRepositoryInterface):
         except SQLAlchemyError as e:
             raise UserNotFoundError(email) from e
 
+    @track_database_operation(operation_type='select', table='users')
     async def get_user_list(self) -> List[UserModel]:
-        start_time = time.perf_counter()
         try:
             get_all_users_stmt = select(UserDataModel)
             result = await self.db.execute(get_all_users_stmt)
             users_datamodel = result.scalars().all()
-            
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='success'
-            )
             return [self._to_domain(user) for user in users_datamodel]
         except SQLAlchemyError as e:
-            duration = time.perf_counter() - start_time
-            record_database_metrics(
-                operation_type='select',
-                table='users',
-                duration=duration,
-                status='error'
-            )
             raise UserNotFoundError from e

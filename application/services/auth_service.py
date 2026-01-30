@@ -3,11 +3,8 @@ from domain.entities.user_model import UserModel
 from domain.exceptions.auth_errors import AccountLockedError
 from core.security import get_bcrypt_context
 from datetime import datetime, timedelta, timezone
-import time
-from infrastructure.observability.metrics.prometheus import (
-    record_authentication_metrics,
-    record_security_event
-)
+from infrastructure.observability.metrics.decorators import track_authentication, track_security_event
+from infrastructure.observability.metrics.prometheus import record_security_event
 
 
 class AuthenticateService():
@@ -17,6 +14,7 @@ class AuthenticateService():
         self.lockout_duration_in_minutes = lockout_duration_in_minutes
         self.user_repo = user_repo
 
+    @track_authentication(auth_type='login')
     async def authenticate_user(self, email: str, password: str) -> UserModel | None:
         """
         Authenticate user with lockout mechanism.
@@ -31,17 +29,9 @@ class AuthenticateService():
         Raises:
             AccountLockedError: If account is temporarily locked
         """
-        start_time = time.perf_counter()
         user = await self.user_repo.get_by_email(email)
 
         if not user:
-            duration = time.perf_counter() - start_time
-            record_authentication_metrics(
-                auth_type='login',
-                duration=duration,
-                status='failure',
-                failure_reason='invalid_credentials'
-            )
             return None
 
         # Get current UTC time (timezone-aware)
@@ -62,13 +52,6 @@ class AuthenticateService():
                 locked_until_aware = user.locked_until
             
             if locked_until_aware > now_utc:
-                duration = time.perf_counter() - start_time
-                record_authentication_metrics(
-                    auth_type='login',
-                    duration=duration,
-                    status='failure',
-                    failure_reason='account_locked'
-                )
                 raise AccountLockedError(
                     locked_until=locked_until_aware.strftime("%Y-%m-%d %H:%M:%S UTC")
                 )
@@ -80,13 +63,6 @@ class AuthenticateService():
                 user.failed_login_attempts = 0
                 user.locked_until = None
                 await self.user_repo.update_user(user)
-            
-            duration = time.perf_counter() - start_time
-            record_authentication_metrics(
-                auth_type='login',
-                duration=duration,
-                status='success'
-            )
             return user
         else:
             # Failed login - increment counter
@@ -104,16 +80,9 @@ class AuthenticateService():
                 )
             
             await self.user_repo.update_user(user)
-            
-            duration = time.perf_counter() - start_time
-            record_authentication_metrics(
-                auth_type='login',
-                duration=duration,
-                status='failure',
-                failure_reason='invalid_credentials'
-            )
             return None
 
+    @track_security_event(event_type='account_unlocked', severity='low')
     async def unlock_account(self, user_id) -> bool:
         """
         Unlock a user account by resetting failed login attempts and lockout time.
@@ -132,11 +101,5 @@ class AuthenticateService():
         user.failed_login_attempts = 0
         user.locked_until = None
         await self.user_repo.update_user(user)
-        
-        # Record security event for account unlock
-        record_security_event(
-            event_type='account_unlocked',
-            severity='low'
-        )
         
         return True
