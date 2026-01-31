@@ -62,6 +62,38 @@ class Settings(BaseSettings):
         description="Application log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     
+    # Loki Logging Configuration
+    loki_enabled: bool = Field(
+        default=True,
+        description="Enable Loki centralized logging",
+    )
+    loki_url: str = Field(
+        default="http://localhost:3100",
+        description="Loki push endpoint URL",
+    )
+    loki_labels: str = Field(
+        default="service=identity-service,environment=development",
+        description="Default Loki labels (comma-separated key=value pairs)",
+    )
+    structured_logging_enabled: bool = Field(
+        default=True,
+        description="Enable structured JSON logging with rich context",
+    )
+    loki_batch_interval: int = Field(
+        default=60,
+        description="Loki batch push interval in seconds",
+        gt=0,
+    )
+    loki_timeout: float = Field(
+        default=10.0,
+        description="Loki push request timeout in seconds",
+        gt=0,
+    )
+    min_log_level_for_loki: str = Field(
+        default="INFO",
+        description="Minimum log level to send to Loki (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+    
     # Metrics Configuration
     metrics_enabled: bool = Field(
         default=True,

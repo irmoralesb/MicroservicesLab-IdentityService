@@ -12,6 +12,10 @@ from domain.exceptions.auth_errors import (
     UnauthorizedUserError
 )
 from application.routers import auth_router, user_profile_router
+from infrastructure.observability.logging.loki_handler import (
+    setup_loki_handler,
+    get_structured_logger,
+)
 
 load_dotenv()
 
@@ -100,6 +104,55 @@ if METRICS_ENABLED:
         logger.error(f"Failed to initialize Prometheus metrics: {e}")
 else:
     logger.info("Prometheus metrics disabled")
+
+
+# Loki logging configuration
+LOKI_ENABLED = app_settings.loki_enabled
+
+if LOKI_ENABLED:
+    try:
+        # Parse labels from comma-separated string
+        loki_labels = {}
+        for label_pair in app_settings.loki_labels.split(","):
+            if "=" in label_pair:
+                key, value = label_pair.split("=", 1)
+                loki_labels[key.strip()] = value.strip()
+        
+        # Setup Loki handler
+        loki_handler = setup_loki_handler(
+            loki_url=app_settings.loki_url,
+            labels=loki_labels,
+            log_level=app_settings.min_log_level_for_loki,
+            batch_interval=app_settings.loki_batch_interval,
+            timeout=app_settings.loki_timeout,
+        )
+        
+        # Add Loki handler to root logger to capture all logs
+        root_logger = logging.getLogger()
+        root_logger.addHandler(loki_handler)
+        
+        logger.info(
+            f"Loki logging enabled at {app_settings.loki_url} "
+            f"with labels: {loki_labels}"
+        )
+        
+        # Log application startup event
+        startup_logger = get_structured_logger("startup")
+        startup_logger.info(
+            "Identity Service started",
+            extra={
+                "event_type": "application_startup",
+                "service_name": app_settings.service_name,
+                "log_level": LOG_LEVEL,
+                "metrics_enabled": METRICS_ENABLED,
+                "loki_enabled": True,
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize Loki logging: {e}", exc_info=True)
+else:
+    logger.info("Loki logging disabled")
 
 
 app.include_router(auth_router.router)

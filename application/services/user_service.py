@@ -11,6 +11,10 @@ from infrastructure.observability.metrics.decorators import (
     track_user_operation,
     track_password_operation
 )
+from infrastructure.observability.logging.decorators import (
+    log_user_operation_decorator,
+    log_password_operation_decorator,
+)
 
 
 class UserService:
@@ -26,6 +30,7 @@ class UserService:
         self.role_repo = role_repo
 
     @track_user_operation(operation_type='create')
+    @log_user_operation_decorator(operation_type='create')
     async def create_user_with_default_role(self, user: UserModel, default_role_name: str) -> UserModel:
         """
         Create a new user and assign them the default role
@@ -90,6 +95,7 @@ class UserService:
         return await self.user_repo.update_user(user)
 
     @track_user_operation(operation_type='activate')
+    @log_user_operation_decorator(operation_type='activate')
     async def activate_user(self, user_id: UUID) -> bool:
         """
         Activate a user account by setting is_active to True.
@@ -110,6 +116,7 @@ class UserService:
         return True
 
     @track_user_operation(operation_type='deactivate')
+    @log_user_operation_decorator(operation_type='deactivate')
     async def deactivate_user(self, user_id: UUID) -> bool:
         """
         Deactivate a user account by setting is_active to False
@@ -126,6 +133,7 @@ class UserService:
         return True
 
     @track_password_operation(operation_type='change', record_security=True)
+    @log_password_operation_decorator(operation_type='change', record_security=True)
     async def change_password(
         self,
         user_id: UUID,

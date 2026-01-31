@@ -5,6 +5,14 @@ from core.security import get_bcrypt_context
 from datetime import datetime, timedelta, timezone
 from infrastructure.observability.metrics.decorators import track_authentication, track_security_event
 from infrastructure.observability.metrics.prometheus import record_security_event
+from infrastructure.observability.logging.decorators import (
+    log_authentication,
+    log_security_event_decorator,
+)
+from infrastructure.observability.logging.loki_handler import (
+    get_structured_logger,
+    log_security_event,
+)
 
 
 class AuthenticateService():
@@ -15,6 +23,7 @@ class AuthenticateService():
         self.user_repo = user_repo
 
     @track_authentication(auth_type='login')
+    @log_authentication(auth_type='login')
     async def authenticate_user(self, email: str, password: str) -> UserModel | None:
         """
         Authenticate user with lockout mechanism.
@@ -78,11 +87,21 @@ class AuthenticateService():
                     event_type='account_locked',
                     severity='medium'
                 )
-            
+                 
+                # Log security event with structured context
+                logger = get_structured_logger("auth.security")
+                log_security_event(
+                    logger=logger,
+                    event_type='account_locked',
+                    severity='medium',
+                    details=f'Email account: {email}'
+                ) 
+                
             await self.user_repo.update_user(user)
             return None
 
     @track_security_event(event_type='account_unlocked', severity='low')
+    @log_security_event_decorator(event_type='account_unlocked',severity='low')
     async def unlock_account(self, user_id) -> bool:
         """
         Unlock a user account by resetting failed login attempts and lockout time.
