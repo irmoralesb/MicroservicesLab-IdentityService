@@ -15,6 +15,10 @@ from infrastructure.observability.logging.decorators import (
     log_user_operation_decorator,
     log_password_operation_decorator,
 )
+from infrastructure.observability.tracing.decorators import (
+    trace_user_operation,
+    trace_password_operation,
+)
 
 
 class UserService:
@@ -31,6 +35,7 @@ class UserService:
 
     @track_user_operation(operation_type='create')
     @log_user_operation_decorator(operation_type='create')
+    @trace_user_operation(operation_type='create')
     async def create_user_with_default_role(self, user: UserModel, default_role_name: str) -> UserModel:
         """
         Create a new user and assign them the default role
@@ -134,6 +139,7 @@ class UserService:
 
     @track_password_operation(operation_type='change', record_security=True)
     @log_password_operation_decorator(operation_type='change', record_security=True)
+    @trace_password_operation(operation_type='change', record_security=True)
     async def change_password(
         self,
         user_id: UUID,

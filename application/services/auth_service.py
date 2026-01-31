@@ -13,6 +13,10 @@ from infrastructure.observability.logging.loki_handler import (
     get_structured_logger,
     log_security_event,
 )
+from infrastructure.observability.tracing.decorators import (
+    trace_authentication,
+    trace_security_event,
+)
 
 
 class AuthenticateService():
@@ -24,6 +28,7 @@ class AuthenticateService():
 
     @track_authentication(auth_type='login')
     @log_authentication(auth_type='login')
+    @trace_authentication(auth_type='login')
     async def authenticate_user(self, email: str, password: str) -> UserModel | None:
         """
         Authenticate user with lockout mechanism.
@@ -102,6 +107,7 @@ class AuthenticateService():
 
     @track_security_event(event_type='account_unlocked', severity='low')
     @log_security_event_decorator(event_type='account_unlocked',severity='low')
+    @trace_security_event(event_type='account_unlocked', severity='low')
     async def unlock_account(self, user_id) -> bool:
         """
         Unlock a user account by resetting failed login attempts and lockout time.

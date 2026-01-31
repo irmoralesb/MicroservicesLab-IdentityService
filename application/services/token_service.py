@@ -6,6 +6,7 @@ from infrastructure.repositories.role_repository import RoleRepository
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.observability.metrics.decorators import track_token_operation
 from infrastructure.observability.logging.decorators import log_token_operation_decorator
+from infrastructure.observability.tracing.decorators import trace_token_operation
 
 
 class TokenService:
@@ -19,6 +20,7 @@ class TokenService:
     
     @track_token_operation(operation_type='generate', token_type='access')
     @log_token_operation_decorator(operation_type='generate', token_type='access')
+    @trace_token_operation(operation_type='generate', token_type='access')
     async def create_access_token(
         self,
         user: UserModel,

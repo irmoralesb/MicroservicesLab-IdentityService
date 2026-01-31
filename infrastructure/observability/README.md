@@ -1,6 +1,6 @@
-# Observability - Metrics & Logging
+# Observability - Metrics, Logging & Distributed Tracing
 
-This directory contains the observability implementation for the Identity Service, including Prometheus metrics and Loki logging with pre-configured Grafana dashboards.
+This directory contains the complete observability implementation for the Identity Service, including Prometheus metrics, Loki logging, and Tempo distributed tracing with pre-configured Grafana dashboards.
 
 ## Overview
 
@@ -14,8 +14,240 @@ observability/
 │   ├── loki_handler.py                # Structured logging handlers
 │   ├── decorators.py                  # Logging decorators
 │   └── grafana-loki-dashboard.json    # Grafana dashboard for logs
+├── tracing/                           # Tempo distributed tracing
+│   ├── tempo.py                       # Tracer setup and span enrichment
+│   ├── decorators.py                  # Tracing decorators
+│   └── grafana-tempo-dashboard.json   # Grafana dashboard for traces
 └── README.md                          # This file
 ```
+
+## Distributed Tracing (Tempo)
+
+### What's Traced
+
+OpenTelemetry-based distributed tracing with automatic instrumentation for:
+
+- **Authentication Operations**: Login flows with span context propagation
+- **User Operations**: CRUD operations with parent-child span relationships
+- **Token Operations**: Token generation and validation spans
+- **Password Operations**: Password changes marked as security-relevant spans
+- **Security Events**: Account locks and security-related operations
+- **Database Operations**: Automatic SQLAlchemy query tracing
+- **HTTP Requests**: Automatic FastAPI request/response tracing
+- **Authorization Checks**: Permission and role validation spans
+
+### Architecture
+
+- **Protocol**: OpenTelemetry Protocol (OTLP) over gRPC
+- **Exporter**: OTLP gRPC exporter to Tempo endpoint
+- **Instrumentation**: 
+  - Automatic FastAPI instrumentation via `FastAPIInstrumentor`
+  - Automatic SQLAlchemy instrumentation via `SQLAlchemyInstrumentor`
+  - Manual span creation via decorators for business logic
+- **Sampling**: Configurable sampling rate (default 100% for development)
+- **Context Propagation**: W3C Trace Context format for inter-service tracing
+
+### Configuration
+
+Set in `.env`:
+```bash
+# Tracing Configuration
+TRACING_ENABLED=true
+TEMPO_ENDPOINT=http://localhost:4317
+TRACE_SAMPLE_RATE=1.0
+ENABLE_TRACE_CONSOLE_EXPORT=false
+SERVICE_NAME=identity-service
+```
+
+**Configuration Options:**
+- `TRACING_ENABLED`: Enable/disable distributed tracing (default: true)
+- `TEMPO_ENDPOINT`: Tempo OTLP gRPC endpoint URL (default: http://localhost:4317)
+- `TRACE_SAMPLE_RATE`: Sampling rate 0.0-1.0 where 1.0 = 100% (default: 1.0)
+- `ENABLE_TRACE_CONSOLE_EXPORT`: Also export traces to console for debugging (default: false)
+- `SERVICE_NAME`: Service identifier in traces (default: identity-service)
+
+### Span Attributes
+
+All spans include standard OpenTelemetry semantic conventions plus domain-specific attributes:
+
+**Authentication Spans:**
+```python
+auth.type: "login" | "refresh" | "verify"
+auth.status: "success" | "failure" | "error"
+auth.failure_reason: "invalid_credentials" | "account_locked" | ...
+auth.duration_seconds: float
+user.id: UUID
+user.email: string (masked for privacy)
+```
+
+**User Operation Spans:**
+```python
+user.operation.type: "create" | "update" | "delete" | "get" | "list"
+user.operation.status: "success" | "failure"
+user.actor.id: UUID  # User performing the operation
+user.target.id: UUID  # User being operated on
+user.operation.duration_seconds: float
+```
+
+**Token Operation Spans:**
+```python
+token.operation.type: "generate" | "validate" | "refresh" | "revoke"
+token.type: "access" | "refresh"
+token.operation.status: "success" | "failure"
+user.id: UUID
+token.operation.duration_seconds: float
+```
+
+**Database Operation Spans (OpenTelemetry Semantic Conventions):**
+```python
+db.system: "mssql"
+db.operation: "select" | "insert" | "update" | "delete"
+db.sql.table: string
+db.operation.status: "success" | "failure"
+db.operation.duration_seconds: float
+```
+
+**Authorization Spans:**
+```python
+authz.resource: string  # e.g., "user"
+authz.action: string  # e.g., "delete"
+authz.granted: boolean
+authz.required_roles: comma-separated string
+authz.user_roles: comma-separated string
+user.id: UUID
+authz.duration_seconds: float
+```
+
+**Security Event Spans:**
+```python
+security.event.type: "account_locked" | "account_unlocked" | ...
+security.event.severity: "low" | "medium" | "high" | "critical"
+user.id: UUID
+security.event.*: Additional context-specific attributes
+```
+
+### Decorator Usage
+
+Tracing decorators follow the same pattern as metrics and logging decorators and should be stacked together:
+
+```python
+from infrastructure.observability.tracing.decorators import (
+    trace_authentication,
+    trace_user_operation,
+    trace_password_operation,
+    trace_token_operation,
+    trace_authorization,
+    trace_security_event,
+)
+
+# Stack decorators: metrics → logging → tracing
+@track_authentication(auth_type='login')
+@log_authentication(auth_type='login')
+@trace_authentication(auth_type='login')
+async def authenticate_user(email: str, password: str) -> UserModel | None:
+    # Business logic automatically wrapped in span
+    pass
+
+@track_user_operation(operation_type='create')
+@log_user_operation_decorator(operation_type='create')
+@trace_user_operation(operation_type='create')
+async def create_user(user: UserModel) -> UserModel:
+    # Automatic span creation with user operation context
+    pass
+```
+
+### Manual Span Creation
+
+For fine-grained control, create spans manually:
+
+```python
+from infrastructure.observability.tracing.tempo import (
+    get_tracer,
+    enrich_authentication_span,
+)
+
+tracer = get_tracer(__name__)
+
+with tracer.start_as_current_span("custom_operation") as span:
+    span.set_attribute("custom.attribute", "value")
+    
+    # Perform operation
+    result = await some_operation()
+    
+    # Enrich with domain-specific attributes
+    enrich_authentication_span(
+        span=span,
+        auth_type="login",
+        status="success",
+        user_id=user.id,
+    )
+```
+
+### Span Context Propagation
+
+OpenTelemetry automatically propagates trace context across service boundaries using W3C Trace Context headers:
+
+- `traceparent`: Contains trace ID, span ID, and sampling decision
+- `tracestate`: Additional vendor-specific trace information
+
+For inter-service calls, use instrumented HTTP clients or manually inject context:
+
+```python
+from opentelemetry.propagate import inject
+
+headers = {}
+inject(headers)  # Injects traceparent and tracestate headers
+
+response = await http_client.get(
+    "http://other-service/api/endpoint",
+    headers=headers
+)
+```
+
+### Grafana Integration
+
+**View Traces in Grafana:**
+
+1. Navigate to **Explore** in Grafana
+2. Select **Tempo** as data source
+3. Use **Search** to find traces by:
+   - Service name: `identity-service`
+   - Operation name: `auth.login.authenticate_user`
+   - Duration: `>100ms`
+   - Status: `error`
+   - Tags: `auth.status=failure`
+
+**Trace to Logs/Metrics Correlation:**
+
+Grafana allows correlation between traces, logs, and metrics:
+
+1. **Trace → Logs**: Click trace span → View related logs by timestamp and trace ID
+2. **Trace → Metrics**: See RED metrics (Rate, Errors, Duration) for traced operations
+3. **Logs → Traces**: Click log entry with trace ID → Jump to related trace
+
+**Sample TraceQL Queries:**
+
+```traceql
+# Find all failed authentication attempts
+{ name="auth.login.authenticate_user" && auth.status="failure" }
+
+# Find slow operations (>1 second)
+{ duration > 1s }
+
+# Find traces with errors
+{ status=error }
+
+# Find traces for specific user
+{ user.id="<user-uuid>" }
+
+# Find authorization denials
+{ authz.granted=false }
+
+# Find security events
+{ security.event.severity="high" || security.event.severity="critical" }
+```
+
+
 
 ## Metrics (Prometheus)
 
@@ -157,6 +389,18 @@ services:
     volumes:
       - loki-data:/loki
 
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -171,10 +415,12 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
 
 volumes:
   prometheus-data:
   loki-data:
+  tempo-data:
   grafana-data:
 ```
 
@@ -193,13 +439,46 @@ scrape_configs:
     metrics_path: '/metrics'
 ```
 
-### 3. Start Services
+### 3. Create `tempo.yaml`
+
+```yaml
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  storage:
+    path: /var/tempo/generator/wal
+  traces_storage:
+    path: /var/tempo/generator/traces
+```
+
+### 4. Start Services
 
 ```bash
 docker-compose -f docker-compose.observability.yml up -d
 ```
 
-### 4. Configure Grafana
+### 5. Configure Grafana
 
 **Access Grafana**: http://localhost:3000 (admin/admin)
 
@@ -215,11 +494,24 @@ docker-compose -f docker-compose.observability.yml up -d
 3. URL: `http://loki:3100`
 4. Click **Save & Test**
 
+**Add Tempo Data Source:**
+1. Configuration → Data Sources → Add data source
+2. Select Tempo
+3. URL: `http://tempo:3200`
+4. Click **Save & Test**
+
+**Enable Trace to Logs Correlation:**
+1. Edit Tempo data source
+2. Under "Trace to logs", select Loki as target
+3. Set tags: `service.name` (maps to Loki label)
+4. Click **Save & Test**
+
 **Import Dashboards:**
 1. Import `metrics/grafana-prometheus-dashboard.json`
 2. Import `logging/grafana-loki-dashboard.json`
+3. Import `tracing/grafana-tempo-dashboard.json` (if available)
 
-### 5. Update Application `.env`
+### 6. Update Application `.env`
 
 ```bash
 # Prometheus metrics
@@ -230,6 +522,12 @@ METRICS_ENDPOINT=/metrics
 LOKI_ENABLED=true
 LOKI_URL=http://localhost:3100
 LOKI_LABELS=service=identity-service,environment=development
+
+# Tempo tracing
+TRACING_ENABLED=true
+TEMPO_ENDPOINT=http://localhost:4317
+TRACE_SAMPLE_RATE=1.0
+SERVICE_NAME=identity-service
 ```
 
 ## Example LogQL Queries (Loki)

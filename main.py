@@ -16,6 +16,9 @@ from infrastructure.observability.logging.loki_handler import (
     setup_loki_handler,
     get_structured_logger,
 )
+from infrastructure.observability.tracing.tempo import setup_tempo_tracer
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
 load_dotenv()
 
@@ -79,7 +82,7 @@ async def unauthorized_exception_handler(request, exc: UnauthorizedUserError):
 
 
 # Prometheus metrics configuration
-METRICS_ENABLED = app_settings.metrics_enabled == "true"
+METRICS_ENABLED = app_settings.metrics_enabled
 METRICS_ENDPOINT = app_settings.metrics_endpoint
 
 # Initialize Prometheus instrumentation with configuration
@@ -153,6 +156,50 @@ if LOKI_ENABLED:
         logger.error(f"Failed to initialize Loki logging: {e}", exc_info=True)
 else:
     logger.info("Loki logging disabled")
+
+
+# Tempo tracing configuration
+TRACING_ENABLED = app_settings.tracing_enabled
+
+if TRACING_ENABLED:
+    try:
+        # Setup Tempo tracer
+        tracer_provider = setup_tempo_tracer(
+            endpoint=app_settings.tempo_endpoint,
+            service_name=app_settings.service_name,
+            sample_rate=app_settings.trace_sample_rate,
+            enable_console_export=app_settings.enable_trace_console_export,
+        )
+        
+        # Instrument FastAPI automatically
+        FastAPIInstrumentor.instrument_app(app)
+        
+        # Instrument SQLAlchemy for database tracing
+        # Note: This will be applied when database engine is created
+        from infrastructure.databases.database import engine
+        SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
+        
+        logger.info(
+            f"Tempo tracing enabled at {app_settings.tempo_endpoint} "
+            f"(sample_rate={app_settings.trace_sample_rate})"
+        )
+        
+        # Log tracing startup event
+        startup_logger = get_structured_logger("startup")
+        startup_logger.info(
+            "Distributed tracing initialized",
+            extra={
+                "event_type": "tracing_startup",
+                "service_name": app_settings.service_name,
+                "tempo_endpoint": app_settings.tempo_endpoint,
+                "sample_rate": app_settings.trace_sample_rate,
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize Tempo tracing: {e}", exc_info=True)
+else:
+    logger.info("Tempo tracing disabled")
 
 
 app.include_router(auth_router.router)

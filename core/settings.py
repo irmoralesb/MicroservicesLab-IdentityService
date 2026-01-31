@@ -134,10 +134,30 @@ class Settings(BaseSettings):
         description="Lockout duration after max number of failed password atteps was reached"
     )
 
+    # Tracing Configuration
+    tracing_enabled: bool = Field(
+        default=True,
+        description="Enable distributed tracing with OpenTelemetry",
+    )
+    tempo_endpoint: str = Field(
+        default="http://localhost:4317",
+        description="Tempo OTLP gRPC endpoint URL",
+    )
+    trace_sample_rate: float = Field(
+        default=1.0,
+        description="Trace sampling rate (0.0 to 1.0, where 1.0 means 100%)",
+        ge=0.0,
+        le=1.0,
+    )
+    enable_trace_console_export: bool = Field(
+        default=False,
+        description="Enable console export of traces for debugging",
+    )
+
     # Service Configuration
     service_name: str = Field(
         default="identity-service",
-        description="Name of this microservice for RBAC scoping"
+        description="Name of this microservice for RBAC scoping and tracing"
     )
     
     model_config = SettingsConfigDict(
