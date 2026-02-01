@@ -63,7 +63,7 @@ async def permission_exception_handler(request, exc: MissingPermissionError):
 
 
 @app.exception_handler(MissingRoleError)
-async def permission_exception_handler(request, exc: MissingRoleError):
+async def role_exception_handler(request, exc: MissingRoleError):
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
         content={
@@ -175,7 +175,6 @@ if TRACING_ENABLED:
         FastAPIInstrumentor.instrument_app(app)
         
         # Instrument SQLAlchemy for database tracing
-        # Note: This will be applied when database engine is created
         from infrastructure.databases.database import engine
         SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
         

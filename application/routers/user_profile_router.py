@@ -17,7 +17,7 @@ async def get_current_user(
         user_svc: UserSvcDep):
     try:
 
-        if current_user is None:
+        if current_user is None or current_user.user is None or current_user.user.id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Unable to get user profile data")
 
@@ -60,7 +60,7 @@ async def update_current_user(
     user_svc: UserSvcDep
 ):
     try:
-        if update_user_request is None:
+        if update_user_request is None or current_user is None or current_user.user is None or current_user.user.id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unable to update user profile data")
