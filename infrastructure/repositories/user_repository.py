@@ -171,4 +171,4 @@ class UserRepository(UserRepositoryInterface):
             users_datamodel = result.scalars().all()
             return [self._to_domain(user) for user in users_datamodel]
         except SQLAlchemyError as e:
-            raise UserNotFoundError from e
+            raise UserNotFoundError("") from e

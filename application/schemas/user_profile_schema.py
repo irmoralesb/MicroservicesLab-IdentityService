@@ -1,7 +1,11 @@
-from pydantic import BaseModel, Field, EmailStr
-from domain.entities.user_model import UserModel
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field
+
+from domain.entities.user_model import UserModel
 
 
 class UserProfileResponse(BaseModel):

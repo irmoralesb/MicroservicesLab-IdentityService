@@ -32,36 +32,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 50,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -97,10 +68,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum by(level) (count_over_time({service=\"identity-service\"} [$__interval]))",
+          "expr": "sum by(level) (count_over_time({service=\"identity-service\", environment=\"development\"} [$__interval]))",
           "refId": "A"
         }
       ],
@@ -132,10 +102,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"}",
+          "expr": "{service=\"identity-service\", environment=\"development\"}",
           "refId": "A"
         }
       ],
@@ -152,36 +121,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -217,10 +157,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum by(status) (count_over_time({service=\"identity-service\"} | json | event_type=\"authentication\" [$__interval]))",
+          "expr": "sum by(status) (count_over_time({service=\"identity-service\", environment=\"development\"} | json | event_type=\"authentication\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -252,10 +191,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | event_type=\"authentication\" | status=\"failure\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | event_type=\"authentication\" | status=\"failure\"",
           "refId": "A"
         }
       ],
@@ -272,36 +210,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -337,10 +246,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum by(security_event_type, severity) (count_over_time({service=\"identity-service\"} | json | event_type=\"security\" [$__interval]))",
+          "expr": "sum by(security_event_type, severity) (count_over_time({service=\"identity-service\", environment=\"development\"} | json | event_type=\"security\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -372,10 +280,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | event_type=\"security\" | severity=~\"high|critical\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | event_type=\"security\" | severity=~\"high|critical\"",
           "refId": "A"
         }
       ],
@@ -392,36 +299,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -457,10 +335,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum by(operation_type) (count_over_time({service=\"identity-service\"} | json | event_type=\"user_operation\" [$__interval]))",
+          "expr": "sum by(operation_type) (count_over_time({service=\"identity-service\", environment=\"development\"} | json | event_type=\"user_operation\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -492,10 +369,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | event_type=\"user_operation\" | status=\"failure\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | event_type=\"user_operation\" | status=\"failure\"",
           "refId": "A"
         }
       ],
@@ -527,10 +403,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | level=\"ERROR\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | level=~\"ERROR|CRITICAL\"",
           "refId": "A"
         }
       ],
@@ -544,9 +419,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -565,20 +437,7 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "duration_seconds"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -592,9 +451,7 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": [
-            "sum"
-          ],
+          "reducer": ["sum"],
           "show": false
         },
         "showHeader": true
@@ -603,10 +460,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | duration_seconds > 1 | line_format \"{{.operation_type}} - {{.duration_seconds}}s\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | unwrap duration_seconds | duration_seconds > 1",
           "refId": "A"
         }
       ],
@@ -623,36 +479,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -688,10 +515,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "sum by(operation_type, token_type) (count_over_time({service=\"identity-service\"} | json | event_type=\"token_operation\" [$__interval]))",
+          "expr": "sum by(token_operation_type) (count_over_time({service=\"identity-service\", environment=\"development\"} | json | event_type=\"token_operation\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -723,10 +549,9 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
             "uid": "${DS_LOKI}"
           },
-          "expr": "{service=\"identity-service\"} | json | event_type=\"password_operation\" | is_security_event=\"true\"",
+          "expr": "{service=\"identity-service\", environment=\"development\"} | json | event_type=\"password_security\"",
           "refId": "A"
         }
       ],
@@ -772,8 +597,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Identity Service - Loki Logs",
-  "uid": "identity-service-loki",
+  "title": "Identity Service - Loki Logs (Development)",
+  "uid": "identity-service-loki-dev",
   "version": 1,
   "weekStart": ""
 }
