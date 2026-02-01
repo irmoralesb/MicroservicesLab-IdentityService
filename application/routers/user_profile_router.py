@@ -98,7 +98,7 @@ async def activate_user(
 ):
 
     try:
-        user_to_activate = user_svc.get_user_profile(user_id)
+        user_to_activate = await user_svc.get_user_profile(user_id)
 
         if user_to_activate is None:
             raise HTTPException(
@@ -124,7 +124,7 @@ async def deactivate_user(
 ):
 
     try:
-        user_to_activate = user_svc.get_user_profile(user_id)
+        user_to_activate = await user_svc.get_user_profile(user_id)
 
         if user_to_activate is None:
             raise HTTPException(
