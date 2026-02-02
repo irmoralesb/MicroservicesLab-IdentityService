@@ -9,6 +9,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Temporary workaround: allow SHA1 so Microsoft's repo is accepted (Debian policy as of 2026-02-01)
+RUN mkdir -p /etc/crypto-policies/back-ends \
+    && printf '%s\n' '[hash_algorithms]' 'sha1 = "always"' '[asymmetric_algorithms]' 'rsa1024 = "always"' \
+       > /etc/crypto-policies/back-ends/sequoia.config
+
 # Install system deps and Microsoft ODBC Driver 18 for SQL Server (required by pyodbc/aioodbc).
 # python:3.12-slim is Debian Bookworm (12). Optional libgssapi-krb5-2 for debian-slim.
 RUN apt-get update \
