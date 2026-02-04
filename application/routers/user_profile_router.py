@@ -138,3 +138,29 @@ async def deactivate_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error activating the user"
         )
+
+@router.delete("/{user_id}",
+            dependencies=[Depends(require_role("admin")), Depends(
+                require_permission("user", "delete"))],
+            status_code=status.HTTP_202_ACCEPTED)
+async def deactivate_user(
+    user_id: UUID,
+    user_svc: UserSvcDep
+):
+
+    try:
+        user_to_activate = await user_svc.get_user_profile(user_id)
+
+        if user_to_activate is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        await user_svc.delete_user(user_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error activating the user"
+        )
+

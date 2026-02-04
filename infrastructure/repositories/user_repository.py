@@ -7,7 +7,8 @@ from domain.exceptions.auth_errors import (
     UserAlreadyExistsError,
     UserCreationError,
     UserNotFoundError,
-    UserUpdateError)
+    UserUpdateError,
+    UserDeleteError)
 from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
@@ -79,6 +80,7 @@ class UserRepository(UserRepositoryInterface):
         user_data.locked_until = user.locked_until
         user_data.hashed_password = user.hashed_password
 
+
     @track_database_operation(operation_type='insert', table='users')
     async def create_user(self, user: UserModel) -> UserModel:
         """Add a new user"""
@@ -125,12 +127,39 @@ class UserRepository(UserRepositoryInterface):
             await self.db.rollback()
             raise UserUpdateError(user.email) from e
 
+
+    @track_database_operation(operation_type='delete', table='users')
+    async def soft_delete_user(self, user: UserModel) -> bool:
+        """Soft delete user"""
+        if user is None or user.id is None:
+            raise UserNotFoundError(user.email)
+        
+        try:
+            get_user_to_update_stmt = select(UserDataModel).where(
+                UserDataModel.id == user.id
+            )
+            result = await self.db.execute(get_user_to_update_stmt)
+            user_to_update = result.scalars().first()
+
+            if user_to_update is None:
+                raise UserNotFoundError(user.email)
+
+            self._update_datamodel(user, user_to_update)
+            user_to_update.is_deleted = True
+            await self.db.commit()
+            await self.db.refresh(user_to_update)
+            return True
+        except SQLAlchemyError as e:
+            raise UserDeleteError(user.email) from e
+
+
     @track_database_operation(operation_type='select', table='users')
     async def get_by_email(self, email: str) -> UserModel | None:
         """Get user by email"""
         try:
             check_user_email_stmt = select(UserDataModel).where(
-                UserDataModel.email == email)
+                (UserDataModel.email == email) & (UserDataModel.is_deleted == False)
+            )
             result = await self.db.execute(check_user_email_stmt)
             existing_user = result.scalars().first()
 
@@ -166,7 +195,7 @@ class UserRepository(UserRepositoryInterface):
     @track_database_operation(operation_type='select', table='users')
     async def get_user_list(self) -> List[UserModel]:
         try:
-            get_all_users_stmt = select(UserDataModel)
+            get_all_users_stmt = select(UserDataModel).where( UserDataModel.is_deleted == False)
             result = await self.db.execute(get_all_users_stmt)
             users_datamodel = result.scalars().all()
             return [self._to_domain(user) for user in users_datamodel]

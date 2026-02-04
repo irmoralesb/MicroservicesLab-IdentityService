@@ -14,6 +14,12 @@ class UserUpdateError(Exception):
         super().__init__(f"User with email '{email}' cannot be updated")
 
 
+class UserDeleteError(Exception):
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+        super().__init__(f"User with id '{user_id}' cannot be deleted")
+
+
 class UserAlreadyExistsError(Exception):
     """Raised when a user already exists in the database"""
 

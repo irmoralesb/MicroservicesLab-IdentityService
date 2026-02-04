@@ -15,6 +15,7 @@ class UserModel:
     hashed_password: str | None = None
     is_active: bool = False
     is_verified: bool = False
+    is_deleted: bool = False
     failed_login_attempts: int = 0
     locked_until: datetime.datetime | None = None
     created_at: datetime.datetime | None = None

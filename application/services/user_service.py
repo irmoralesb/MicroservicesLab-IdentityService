@@ -137,6 +137,14 @@ class UserService:
         await self.user_repo.update_user(user_data)
         return True
 
+    @track_user_operation(operation_type="delete")
+    @log_user_operation_decorator(operation_type="delete")
+    async def delete_user(self, user_id: UUID) -> bool:
+        user_data = await self.user_repo.get_by_id(user_id)
+        await self.user_repo.soft_delete_user(user_data)
+        return True
+
+
     @track_password_operation(operation_type='change', record_security=True)
     @log_password_operation_decorator(operation_type='change', record_security=True)
     @trace_password_operation(operation_type='change', record_security=True)

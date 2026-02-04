@@ -33,6 +33,8 @@ class UserDataModel(Base):
         DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False)
 
 
 class RolesDataModel(Base):
