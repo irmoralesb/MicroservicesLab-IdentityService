@@ -172,7 +172,7 @@ class UserRepository(UserRepositoryInterface):
         """Get user by id"""
         try:
             get_user_stmt = select(UserDataModel).where(
-                UserDataModel.id == id
+                (UserDataModel.id == id) & (UserDataModel.is_deleted == False)
             )
             result = await self.db.execute(get_user_stmt)
             exiting_user = result.scalars().first()

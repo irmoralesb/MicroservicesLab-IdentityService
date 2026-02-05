@@ -11,7 +11,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=UserProfileResponse)
+@router.get("/current", response_model=UserProfileResponse)
 async def get_current_user(
         current_user: CurrentUserDep,
         user_svc: UserSvcDep):
@@ -34,6 +34,32 @@ async def get_current_user(
         # TODO: Log the error: e
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Error validating token data.")
+
+
+@router.get("",
+            response_model=UserProfileResponse,
+            dependencies=[
+                Depends(require_role("admin")),
+                Depends(require_permission("user", "read"))],
+            status_code=status.HTTP_200_OK)
+async def get_user_profile(user_id: UUID, user_svc: UserSvcDep):
+    try:
+        user = await user_svc.get_user_profile(user_id=user_id)
+
+        if user:
+            return UserProfileResponse.from_user_model(user)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error while processing the request"
+        )
 
 
 @router.get("/all",
@@ -139,10 +165,11 @@ async def deactivate_user(
             detail="Error activating the user"
         )
 
+
 @router.delete("/{user_id}",
-            dependencies=[Depends(require_role("admin")), Depends(
-                require_permission("user", "delete"))],
-            status_code=status.HTTP_202_ACCEPTED)
+               dependencies=[Depends(require_role("admin")), Depends(
+                   require_permission("user", "delete"))],
+               status_code=status.HTTP_202_ACCEPTED)
 async def deactivate_user(
     user_id: UUID,
     user_svc: UserSvcDep
@@ -163,4 +190,3 @@ async def deactivate_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error activating the user"
         )
-
