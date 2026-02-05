@@ -36,7 +36,7 @@ async def get_current_user(
                             detail="Error validating token data.")
 
 
-@router.get("",
+@router.get("/{user_id}",
             response_model=UserProfileResponse,
             dependencies=[
                 Depends(require_role("admin")),
