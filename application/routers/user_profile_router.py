@@ -11,6 +11,23 @@ router = APIRouter(
 )
 
 
+@router.get("/all",
+            dependencies=[Depends(require_role("admin")), Depends(
+                require_permission("user", "read"))],
+            status_code=status.HTTP_200_OK)
+async def get_all_users(user_svc: UserSvcDep):
+    try:
+        user_list = await user_svc.get_user_list()
+
+        return [UserProfileResponse.from_user_model(user) for user in user_list]
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error while processing the request."
+        )
+
+
 @router.get("/current", response_model=UserProfileResponse)
 async def get_current_user(
         current_user: CurrentUserDep,
@@ -59,23 +76,6 @@ async def get_user_profile(user_id: UUID, user_svc: UserSvcDep):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error while processing the request"
-        )
-
-
-@router.get("/all",
-            dependencies=[Depends(require_role("admin")), Depends(
-                require_permission("user", "read"))],
-            status_code=status.HTTP_200_OK)
-async def get_all_users(user_svc: UserSvcDep):
-    try:
-        user_list = await user_svc.get_user_list()
-
-        return [UserProfileResponse.from_user_model(user) for user in user_list]
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error while processing the request."
         )
 
 
@@ -170,7 +170,7 @@ async def deactivate_user(
                dependencies=[Depends(require_role("admin")), Depends(
                    require_permission("user", "delete"))],
                status_code=status.HTTP_202_ACCEPTED)
-async def deactivate_user(
+async def delete_user(
     user_id: UUID,
     user_svc: UserSvcDep
 ):
