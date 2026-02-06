@@ -7,8 +7,15 @@ Create Date: 2026-02-05 00:00:00.000000
 """
 from typing import Sequence, Union
 from alembic import op
+from passlib.context import CryptContext
+from dotenv import load_dotenv
 import sqlalchemy as sa
 import uuid
+import os
+
+load_dotenv()
+
+admin_password = os.getenv("ADMIN_PASSWORD")
 
 # revision identifiers, used by Alembic.
 revision: str = '6e2b1c3a9f01'
@@ -198,6 +205,59 @@ def upgrade() -> None:
     ]
     op.bulk_insert(role_permissions_table, admin_role_permissions)
     op.bulk_insert(role_permissions_table, user_role_permissions)
+    
+    # 5. Insert admin user
+    if admin_password is None:
+        raise Exception("No Administrator password provided")
+    
+    admin_hashed_password = CryptContext(schemes=['bcrypt']).hash(admin_password)
+    admin_user_id = str(uuid.uuid4())
+    op.bulk_insert(
+        sa.table(
+            'users',
+            sa.column('id', sa.String(36)),
+            sa.column('first_name', sa.String(50)),
+            sa.column('middle_name', sa.String(50)),
+            sa.column('last_name', sa.String(50)),
+            sa.column('email', sa.String(250)),
+            sa.column('hashed_password', sa.String(200)),
+            sa.column('is_active', sa.Boolean),
+            sa.column('is_verified', sa.Boolean),
+            sa.column('is_deleted', sa.Boolean),
+            sa.column('failed_login_attempts', sa.Integer)
+        ),
+        [
+            {
+                'id': admin_user_id,
+                'first_name': 'System',
+                'middle_name': None,
+                'last_name': 'Administrator',
+                'email': 'admin@email.com',
+                'hashed_password': admin_hashed_password,
+                'is_active': True,
+                'is_verified': True,
+                'is_deleted': False,
+                'failed_login_attempts': 0
+            }
+        ]
+    )
+
+    # 6. Assign admin role to admin user
+    op.bulk_insert(
+        sa.table(
+            'user_roles',
+            sa.column('id', sa.String(36)),
+            sa.column('user_id', sa.String(36)),
+            sa.column('role_id', sa.String(36))
+        ),
+        [
+            {
+                'id': str(uuid.uuid4()),
+                'user_id': admin_user_id,
+                'role_id': admin_role_id
+            }
+        ]
+    )
 
 def downgrade() -> None:
     """Remove seeded admin_service, roles, permissions, and mappings."""
