@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from infrastructure.databases.models import (
+    ServiceDataModel,
     RolesDataModel,
     UserRolesDataModel,
     RolePermissionsDataModel,
@@ -22,18 +23,22 @@ class RoleRepository(RoleRepositoryInterface):
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _to_domain(self, db_role: RolesDataModel) -> RoleModel:
+    def _to_domain(self, db_role: RolesDataModel, service_name: str) -> RoleModel:
         return RoleModel(
             id=db_role.id,
-            service=db_role.service_name,
+            service=service_name,
             name=db_role.name,
-            description=db_role.description
+            description=db_role.description,
+            service_id=db_role.service_id
         )
 
     def _to_datamodel(self, role: RoleModel) -> RolesDataModel:
+        service_id = getattr(role, "service_id", None)
+        if service_id is None:
+            raise ValueError("RoleModel.service_id is required to persist roles")
         return RolesDataModel(
             id=role.id,
-            service_name=role.service,
+            service_id=service_id,
             name=role.name,
             description=role.description
         )
@@ -41,15 +46,23 @@ class RoleRepository(RoleRepositoryInterface):
     @track_database_operation(operation_type='select', table='roles')
     async def get_by_name(self, role_name: str) -> RoleModel:
         try:
-            role_info_stmt = select(RolesDataModel).where(
-                RolesDataModel.name == role_name)
+            role_info_stmt = select(
+                RolesDataModel,
+                ServiceDataModel.name
+            ).join(
+                ServiceDataModel, RolesDataModel.service_id == ServiceDataModel.id
+            ).where(
+                RolesDataModel.name == role_name
+            )
             result = await self.db.execute(role_info_stmt)
-            user_role_info = result.scalars().first()
+            row = result.first()
 
-            if not user_role_info:
+            if not row:
                 raise RoleNotFoundError(role_name)
 
-            return self._to_domain(user_role_info)
+            db_role, service_name = row
+
+            return self._to_domain(db_role, service_name)
         except RoleNotFoundError:
             raise
         except SQLAlchemyError as e:
@@ -88,11 +101,19 @@ class RoleRepository(RoleRepositoryInterface):
                 "Cannot get user roles, no user data was provided")
 
         try:
-            get_role_stmt = select(RolesDataModel).join(
-                UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id).where(UserRolesDataModel.user_id == user.id)
+            get_role_stmt = select(
+                RolesDataModel,
+                ServiceDataModel.name
+            ).join(
+                UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id
+            ).join(
+                ServiceDataModel, RolesDataModel.service_id == ServiceDataModel.id
+            ).where(
+                UserRolesDataModel.user_id == user.id
+            )
             result = await self.db.execute(get_role_stmt)
-            role_data = result.scalars().all()
-            return [self._to_domain(role) for role in role_data]
+            role_data = result.all()
+            return [self._to_domain(role, service_name) for role, service_name in role_data]
         except SQLAlchemyError as e:
             raise AssignUserRoleError(
                 f"Error fetching roles for user {user.id}: {str(e)}")
@@ -136,9 +157,12 @@ class RoleRepository(RoleRepositoryInterface):
                 ).join(
                     PermissionsDataModel,
                     PermissionsDataModel.id == RolePermissionsDataModel.permission_id
+                ).join(
+                    ServiceDataModel,
+                    ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserRolesDataModel.user_id == user.id,
-                    PermissionsDataModel.service_name == service_name,
+                    ServiceDataModel.name == service_name,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -153,9 +177,12 @@ class RoleRepository(RoleRepositoryInterface):
                 check_user_permission_stmt = select(PermissionsDataModel).join(
                     UserPermissionsDataModel,
                     UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+                ).join(
+                    ServiceDataModel,
+                    ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserPermissionsDataModel.user_id == user.id,
-                    PermissionsDataModel.service_name == service_name,
+                    ServiceDataModel.name == service_name,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -198,28 +225,32 @@ class RoleRepository(RoleRepositoryInterface):
         try:
 
             role_permissions_stmt = select(
-                PermissionsDataModel
+                PermissionsDataModel,
+                ServiceDataModel.name
             ).join(
                 RolePermissionsDataModel,
                 RolePermissionsDataModel.permission_id == PermissionsDataModel.id
             ).join(
                 UserRolesDataModel,
                 UserRolesDataModel.role_id == RolePermissionsDataModel.role_id
+            ).join(
+                ServiceDataModel,
+                ServiceDataModel.id == PermissionsDataModel.service_id
             ).where(
                 UserRolesDataModel.user_id == user.id,
             )
 
             if service_name:
                 role_permissions_stmt = role_permissions_stmt.where(
-                    PermissionsDataModel.service_name == service_name
+                    ServiceDataModel.name == service_name
                 )
 
             role_permissions_stmt = role_permissions_stmt.distinct()
 
             result = await self.db.execute(role_permissions_stmt)
-            for perm in result.scalars().all():
+            for perm, perm_service_name in result.all():
                 permissions.append({
-                    'service_name': perm.service_name,
+                    'service_name': perm_service_name,
                     'resource': perm.resource,
                     'action': perm.action,
                     'name': perm.name,
@@ -228,23 +259,27 @@ class RoleRepository(RoleRepositoryInterface):
 
             # Get direct user permissions
             user_permissions_stmt = select(
-                PermissionsDataModel
+                PermissionsDataModel,
+                ServiceDataModel.name
             ).join(
                 UserPermissionsDataModel,
                 UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+            ).join(
+                ServiceDataModel,
+                ServiceDataModel.id == PermissionsDataModel.service_id
             ).where(
                 UserPermissionsDataModel.user_id == user.id
             )
 
             if service_name:
                 user_permissions_stmt = user_permissions_stmt.where(
-                    PermissionsDataModel.service_name == service_name
+                    ServiceDataModel.name == service_name
                 )
 
             result = await self.db.execute(user_permissions_stmt)
-            for perm in result.scalars().all():
+            for perm, perm_service_name in result.all():
                 permissions.append({
-                    'service_name': perm.service_name,
+                    'service_name': perm_service_name,
                     'resource': perm.resource,
                     'action': perm.action,
                     'name': perm.name,

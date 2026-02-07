@@ -7,3 +7,4 @@ class RoleModel:
     service: str
     name: str
     description: str
+    service_id: UUID | None = None

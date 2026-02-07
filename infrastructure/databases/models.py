@@ -2,7 +2,7 @@ import datetime
 import uuid
 from datetime import timezone
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, UniqueConstraint, Index
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, func, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from infrastructure.databases.database import Base
@@ -37,18 +37,51 @@ class UserDataModel(Base):
         Boolean, nullable=False, default=False)
 
 
+class ServiceDataModel(Base):
+    __tablename__ = "services"
+    __table_args__ = (
+        UniqueConstraint('name', name='uix_services_name'),
+        Index('ix_services_name', 'name')
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        String(36), default=uuid.uuid4,
+        primary_key=True, index=False)
+    name: Mapped[str] = mapped_column(
+        String(50), nullable=False,
+        comment="Service name used for RBAC scoping")
+    description: Mapped[str | None] = mapped_column(
+        String(255), nullable=True,
+        comment="Service description")
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True,
+        comment="Whether this service is active")
+    url: Mapped[str | None] = mapped_column(
+        String(255), nullable=True,
+        comment="Base URL for the service")
+    port: Mapped[int | None] = mapped_column(
+        Integer, nullable=True,
+        comment="Network port for the service")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+
+
 class RolesDataModel(Base):
     __tablename__ = "roles"
     __table_args__ = (
-        UniqueConstraint('service_name', 'name', name='uix_service_role_name'),
-        Index('ix_roles_service_name', 'service_name')
+        UniqueConstraint('service_id', 'name', name='uix_service_role_name'),
+        Index('ix_roles_service_id', 'service_id')
     )
     id: Mapped[uuid.UUID] = mapped_column(
         String(36), default=uuid.uuid4,
         primary_key=True, index=False)
-    service_name: Mapped[str] = mapped_column(
-        String(50), nullable=False,
-        comment="Name of the microservice this role belongs to (e.g., 'identity-service', 'translation-service')")
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        String(36),
+        ForeignKey("services.id", ondelete="NO ACTION", onupdate="NO ACTION"),
+        nullable=False,
+        comment="Service identifier this role belongs to")
     name: Mapped[str] = mapped_column(
         String(50), nullable=False,
         comment="Role name within the service (e.g., 'admin', 'user', 'translator')")
@@ -63,16 +96,18 @@ class RolesDataModel(Base):
 class PermissionsDataModel(Base):
     __tablename__ = "permissions"
     __table_args__ = (
-        UniqueConstraint('service_name', 'resource', 'action',
+        UniqueConstraint('service_id', 'resource', 'action',
                          name='uix_service_permission'),
-        Index('ix_permission_service_name', 'service_name')
+        Index('ix_permission_service_id', 'service_id')
     )
     id: Mapped[uuid.UUID] = mapped_column(
         String(36), default=uuid.uuid4,
         primary_key=True, index=False)
-    service_name: Mapped[str] = mapped_column(
-        String(50), nullable=False,
-        comment="Name of the microservice this permission belongs to")
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        String(36),
+        ForeignKey("services.id", ondelete="NO ACTION", onupdate="NO ACTION"),
+        nullable=False,
+        comment="Service identifier this permission belongs to")
     name: Mapped[str] = mapped_column(
         String(50), nullable=False,
         comment="Human-readable permission name")
