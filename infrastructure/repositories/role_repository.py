@@ -1,6 +1,13 @@
 from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
-from domain.exceptions.roles_errors import AssignUserRoleError, RoleNotFoundError
+from domain.exceptions.roles_errors import (
+    AssignUserRoleError,
+    RoleCreationError,
+    RoleDeleteError,
+    RoleListError,
+    RoleNotFoundError,
+    RoleUpdateError,
+)
 from domain.interfaces.role_repository import RoleRepositoryInterface
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,16 +24,16 @@ from infrastructure.observability.metrics.decorators import (
     track_database_operation,
     track_permission_check
 )
+from uuid import UUID
 
 
 class RoleRepository(RoleRepositoryInterface):
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _to_domain(self, db_role: RolesDataModel, service_name: str) -> RoleModel:
+    def _to_domain(self, db_role: RolesDataModel) -> RoleModel:
         return RoleModel(
             id=db_role.id,
-            service=service_name,
             name=db_role.name,
             description=db_role.description,
             service_id=db_role.service_id
@@ -43,45 +50,133 @@ class RoleRepository(RoleRepositoryInterface):
             description=role.description
         )
 
+    def _update_datamodel(self, role: RoleModel, role_data: RolesDataModel) -> None:
+        """Update role data model values from a role model."""
+        role_data.name = role.name
+        role_data.description = role.description
+        if role.service_id is not None:
+            role_data.service_id = role.service_id
+
     @track_database_operation(operation_type='select', table='roles')
     async def get_by_name(self, role_name: str) -> RoleModel:
         try:
             role_info_stmt = select(
-                RolesDataModel,
-                ServiceDataModel.name
-            ).join(
-                ServiceDataModel, RolesDataModel.service_id == ServiceDataModel.id
+                RolesDataModel
             ).where(
                 RolesDataModel.name == role_name
             )
             result = await self.db.execute(role_info_stmt)
-            row = result.first()
+            db_role = result.scalars().first()
 
-            if not row:
-                raise RoleNotFoundError(role_name)
-
-            db_role, service_name = row
-
-            return self._to_domain(db_role, service_name)
+            return self._to_domain(db_role)
         except RoleNotFoundError:
             raise
         except SQLAlchemyError as e:
             raise RoleNotFoundError(role_name) from e
 
-    @track_database_operation(operation_type='insert', table='user_roles')
-    async def assign_role(self, user: UserModel, role: RoleModel) -> bool:
-        if user is None:
-            raise ValueError(
-                "Cannot assign role to the user, no user data was provided.")
+    @track_database_operation(operation_type='select', table='roles')
+    async def get_role_list(self, service_id: UUID) -> List[RoleModel]:
+        """Get all roles for a given service id."""
+        try:
+            role_list_stmt = select(
+                RolesDataModel
+            ).where(
+                RolesDataModel.service_id == service_id
+            )
 
+            result = await self.db.execute(role_list_stmt)
+            role_data = result.scalars().all()
+            return [self._to_domain(role) for role in role_data]
+        except SQLAlchemyError as e:
+            raise RoleListError(service_id) from e
+
+    @track_database_operation(operation_type='insert', table='roles')
+    async def create_role(self, role: RoleModel) -> RoleModel:
+        """Create a new role assigned to a service."""
         if role is None:
+            raise ValueError("Cannot create role, no data was provided.")
+
+        if role.service_id is None:
+            raise ValueError("RoleModel.service_id is required to create roles")
+
+        try:
+            role_db = self._to_datamodel(role)
+            self.db.add(role_db)
+            await self.db.commit()
+            await self.db.refresh(role_db)
+
+            return self._to_domain(role_db)
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleCreationError(role.name) from e
+
+    @track_database_operation(operation_type='update', table='roles')
+    async def update_role(self, role: RoleModel) -> RoleModel:
+        """Update an existing role by id."""
+        if role is None or role.id is None:
+            raise RoleNotFoundError("Unknown")
+
+        try:
+            get_role_stmt = select(RolesDataModel).where(
+                RolesDataModel.id == role.id
+            )
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().first()
+
+            if role_data is None:
+                raise RoleNotFoundError(role.id)
+
+            self._update_datamodel(role, role_data)
+            await self.db.commit()
+            await self.db.refresh(role_data)
+            
+            return self._to_domain(role_data)
+        except RoleNotFoundError:
+            raise
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleUpdateError(role.id) from e
+
+    @track_database_operation(operation_type='delete', table='roles')
+    async def delete_role(self, role_id: UUID) -> bool:
+        """Delete a role by id."""
+        if role_id is None:
+            raise RoleNotFoundError("Unknown")
+
+        try:
+            get_role_stmt = select(RolesDataModel).where(
+                RolesDataModel.id == role_id
+            )
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().first()
+
+            if role_data is None:
+                raise RoleNotFoundError(role_id)
+
+            await self.db.delete(role_data)
+            await self.db.commit()
+            return True
+        except RoleNotFoundError:
+            raise
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleDeleteError(role_id) from e
+
+    @track_database_operation(operation_type='insert', table='user_roles')
+    async def assign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """Assign a role to a user by ids."""
+        if user_id is None:
             raise ValueError(
-                "Cannot assign role to the user, no role data was provided.")
+                "Cannot assign role to the user, no user id was provided.")
+
+        if role_id is None:
+            raise ValueError(
+                "Cannot assign role to the user, no role id was provided.")
 
         try:
             create_user_role: UserRolesDataModel = UserRolesDataModel(
-                user_id=user.id,
-                role_id=role.id
+                user_id=user_id,
+                role_id=role_id
             )
 
             self.db.add(create_user_role)
@@ -91,7 +186,7 @@ class RoleRepository(RoleRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise AssignUserRoleError(
-                f"Error assigning role '{role.name}' to user {user.id}: {str(e)}"
+                f"Error assigning role '{role_id}' to user {user_id}: {str(e)}"
             ) from e
 
     @track_database_operation(operation_type='select', table='roles')
@@ -112,8 +207,8 @@ class RoleRepository(RoleRepositoryInterface):
                 UserRolesDataModel.user_id == user.id
             )
             result = await self.db.execute(get_role_stmt)
-            role_data = result.all()
-            return [self._to_domain(role, service_name) for role, service_name in role_data]
+            role_data = result.scalars().all()
+            return [self._to_domain(role) for role in role_data]
         except SQLAlchemyError as e:
             raise AssignUserRoleError(
                 f"Error fetching roles for user {user.id}: {str(e)}")
