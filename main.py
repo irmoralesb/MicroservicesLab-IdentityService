@@ -11,7 +11,7 @@ from domain.exceptions.auth_errors import (
     MissingRoleError,
     UnauthorizedUserError
 )
-from application.routers import auth_router, user_profile_router
+from application.routers import auth_router, user_profile_router, role_router, service_router
 from infrastructure.observability.logging.loki_handler import (
     setup_loki_handler,
     get_structured_logger,
@@ -203,6 +203,8 @@ else:
 
 app.include_router(auth_router.router)
 app.include_router(user_profile_router.router)
+app.include_router(service_router.router)
+app.include_router(role_router.router)
 
 
 @app.get("/")

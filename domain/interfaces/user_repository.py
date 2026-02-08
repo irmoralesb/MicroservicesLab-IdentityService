@@ -41,6 +41,23 @@ class UserRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def soft_delete_user(self, user: UserModel) -> bool:
+        """
+        Soft delete an existing user in the repository.
+
+        Args:
+            user: The user model to soft delete
+
+        Returns:
+            bool: True if the user was soft deleted
+
+        Raises:
+            UserNotFoundError: If the user doesn't exist
+            UserDeleteError: If the delete operation fails
+        """
+        pass
+
+    @abstractmethod
     async def get_by_email(self, email: str) -> UserModel | None:
         """
         Get a user by their email address.

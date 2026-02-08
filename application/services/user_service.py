@@ -50,13 +50,7 @@ class UserService:
         Raises:
             UserCreationError: If user creation or role assignment fails
         """
-        user_default_role: RoleModel = await self.role_repo.get_by_name(default_role_name)
         new_user: UserModel = await self.user_repo.create_user(user)
-
-        is_success = bool = await self.role_repo.assign_role(new_user, user_default_role)
-
-        if not is_success:
-            raise UserCreationError("Failed to assign default role to user")
 
         return new_user
 
