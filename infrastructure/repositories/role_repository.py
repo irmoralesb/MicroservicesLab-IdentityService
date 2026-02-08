@@ -58,15 +58,19 @@ class RoleRepository(RoleRepositoryInterface):
             role_data.service_id = role.service_id
 
     @track_database_operation(operation_type='select', table='roles')
-    async def get_by_name(self, role_name: str) -> RoleModel:
+    async def get_by_name(self, service_id: UUID, role_name: str) -> RoleModel:
         try:
             role_info_stmt = select(
                 RolesDataModel
             ).where(
-                RolesDataModel.name == role_name
+                RolesDataModel.name == role_name,
+                RolesDataModel.service_id == service_id
             )
             result = await self.db.execute(role_info_stmt)
             db_role = result.scalars().first()
+
+            if db_role is None:
+                raise RoleNotFoundError(role_name)
 
             return self._to_domain(db_role)
         except RoleNotFoundError:

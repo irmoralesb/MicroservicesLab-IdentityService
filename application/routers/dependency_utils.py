@@ -7,10 +7,13 @@ from core.settings import app_settings
 from infrastructure.databases.database import get_monitored_db_session
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
+from infrastructure.repositories.service_repository import ServiceRepository
 from application.services.user_service import UserService
 from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
 from application.services.authorization_service import AuthorizationService
+from application.services.service_service import ServiceService
+from application.services.role_service import RoleService
 from domain.entities.user_model import UserWithRolesModel
 from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 
@@ -31,12 +34,35 @@ def get_role_repository(db: Annotated[AsyncSession, Depends(get_db_session)]) ->
     return RoleRepository(db)
 
 
+def get_service_repository(
+    db: Annotated[AsyncSession, Depends(get_db_session)]
+) -> ServiceRepository:
+    """Provide a `ServiceRepository` bound to the current DB session."""
+    return ServiceRepository(db)
+
+
 def get_user_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
     role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
 ) -> UserService:
     """Provide a `UserService`."""
     return UserService(user_repo, role_repo)
+
+
+def get_service_service(
+    service_repo: Annotated[ServiceRepository, Depends(get_service_repository)],
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
+) -> ServiceService:
+    """Provide a `ServiceService`."""
+    return ServiceService(service_repo, role_repo)
+
+
+def get_role_service(
+    role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
+    service_svc: Annotated[ServiceService, Depends(get_service_service)],
+) -> RoleService:
+    """Provide a `RoleService`."""
+    return RoleService(role_repo, service_svc)
 
 
 # Service dependencies
@@ -117,7 +143,7 @@ def require_role(role_name: str):
     async def role_checker(
             current_user: CurrentUserDep,
             authz_svc: AuthzSvcDep
-    ) -> UserWithRolesModel:
+    ) -> bool:
         """Check if the user has required role"""
         has_role = authz_svc.check_role(current_user, role_name)
 
@@ -135,3 +161,5 @@ TokenSvcDep = Annotated[TokenService, Depends(get_token_service)]
 CurrentUserDep = Annotated[UserWithRolesModel, Depends(get_authenticated_user)]
 AuthzSvcDep = Annotated[AuthorizationService,
                         Depends(get_authorization_service)]
+RoleSvcDep = Annotated[RoleService, Depends(get_role_service)]
+ServiceSvcDep = Annotated[ServiceService, Depends(get_service_service)]

@@ -4,31 +4,39 @@ from uuid import UUID
 from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
 from infrastructure.repositories.role_repository import RoleRepository
+from application.services.service_service import ServiceService
 
 
 class RoleService:
     """Service layer for role and permission operations."""
 
-    def __init__(self, role_repo: RoleRepository) -> None:
+    def __init__(
+        self,
+        role_repo: RoleRepository,
+        service_svc: ServiceService,
+    ) -> None:
         """
         Initialize RoleService with its repository dependency.
 
         Args:
             role_repo: Repository for role data operations
+            service_svc: Service service for validating service existence
         """
         self.role_repo = role_repo
+        self.service_svc = service_svc
 
-    async def get_role_by_name(self, role_name: str) -> RoleModel:
+    async def get_role_by_name(self, service_id: UUID, role_name: str) -> RoleModel:
         """
         Get a role by name.
 
         Args:
+            service_id: Service ID to scope the role lookup
             role_name: Role name to search for
 
         Returns:
             RoleModel: Matching role
         """
-        return await self.role_repo.get_by_name(role_name)
+        return await self.role_repo.get_by_name(service_id, role_name)
 
     async def get_role_list(self, service_id: UUID) -> List[RoleModel]:
         """
@@ -40,6 +48,8 @@ class RoleService:
         Returns:
             List[RoleModel]: Roles for the service
         """
+        # Check if service exists
+        await self.service_svc.get_service(service_id)
         return await self.role_repo.get_role_list(service_id)
 
     async def create_role(self, role: RoleModel) -> RoleModel:

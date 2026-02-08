@@ -63,6 +63,18 @@ class ServiceRepository(ServiceRepositoryInterface):
             await self.db.rollback()
             raise ServiceNotFoundError(service_id) from e
 
+    async def get_by_name(self, service_name: str) -> ServiceModel | None:
+        try:
+            get_by_name_stmt = select(ServiceDataModel).where(
+                ServiceDataModel.name == service_name
+            )
+            result = await self.db.execute(get_by_name_stmt)
+            service_datamodel = result.scalars().first()
+            return None if service_datamodel is None else self._to_domain(service_datamodel)
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise ServiceNotFoundError(None) from e
+
     async def create_service(self, service: ServiceModel) -> ServiceModel:
         try:
             service_db = self._to_datamodel(service)

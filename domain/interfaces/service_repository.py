@@ -14,3 +14,7 @@ class ServiceRepositoryInterface(ABC):
     async def get_by_id(self, service_id: uuid.UUID) -> ServiceModel | None:
         pass
 
+    @abstractmethod
+    async def get_by_name(self, service_name: str) -> ServiceModel | None:
+        pass
+
