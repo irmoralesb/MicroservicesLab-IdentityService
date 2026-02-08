@@ -50,24 +50,7 @@ class UserService:
         Raises:
             UserCreationError: If user creation or role assignment fails
         """
-        # TODO: Remove role repo calls from here and create its own repo class
-        # service = await self.service_repo.get_by_name(app_settings.service_name)
-        # if service is None or service.id is None:
-        #     raise UserCreationError(user.email)
-
-        # user_default_role: RoleModel = await self.role_repo.get_by_name(
-        #     service.id,
-        #     default_role_name,
-        # )
         new_user: UserModel = await self.user_repo.create_user(user)
-
-        # is_success = bool = await self.role_repo.assign_role(
-        #     new_user.id,
-        #     user_default_role.id
-        # )
-
-        # if not is_success:
-        #     raise UserCreationError("Failed to assign default role to user")
 
         return new_user
 
