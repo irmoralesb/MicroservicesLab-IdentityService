@@ -47,7 +47,7 @@ class TokenService:
         # Group roles by service
         roles_by_service: dict[str, list[str]] = {}
         for role in user_roles:
-            service = role.service
+            service = role.service_id
             if service not in roles_by_service:
                 roles_by_service[service] = []
             roles_by_service[service].append(role.name)
