@@ -220,7 +220,7 @@ class RoleRepository(RoleRepositoryInterface):
     async def check_user_permission(
             self,
             user: UserModel,
-            service_name: str,
+            service_id: UUID,
             resource: str,
             action: str
     ) -> bool:
@@ -229,7 +229,7 @@ class RoleRepository(RoleRepositoryInterface):
 
         Args:
             user: User to check
-            service_name: Microservice name (e.g., 'identity-service')
+            service_id: Microservice id (e.g., identity-service's id)
             resource: Resource type
             action: Action type
 
@@ -261,7 +261,7 @@ class RoleRepository(RoleRepositoryInterface):
                     ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserRolesDataModel.user_id == user.id,
-                    ServiceDataModel.name == service_name,
+                    ServiceDataModel.id == service_id,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -281,7 +281,7 @@ class RoleRepository(RoleRepositoryInterface):
                     ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserPermissionsDataModel.user_id == user.id,
-                    ServiceDataModel.name == service_name,
+                    ServiceDataModel.id == service_id,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -303,7 +303,7 @@ class RoleRepository(RoleRepositoryInterface):
     async def get_user_permissions(
         self,
         user: UserModel,
-        service_name: str | None = None
+        service_id: UUID | None = None
     ) -> List[dict]:
         """
            Get all permissions for a user (both role-based and direct)
@@ -339,9 +339,9 @@ class RoleRepository(RoleRepositoryInterface):
                 UserRolesDataModel.user_id == user.id,
             )
 
-            if service_name:
+            if service_id:
                 role_permissions_stmt = role_permissions_stmt.where(
-                    ServiceDataModel.name == service_name
+                    ServiceDataModel.id == service_id
                 )
 
             role_permissions_stmt = role_permissions_stmt.distinct()
@@ -370,9 +370,9 @@ class RoleRepository(RoleRepositoryInterface):
                 UserPermissionsDataModel.user_id == user.id
             )
 
-            if service_name:
+            if service_id:
                 user_permissions_stmt = user_permissions_stmt.where(
-                    ServiceDataModel.name == service_name
+                    ServiceDataModel.id == service_id
                 )
 
             result = await self.db.execute(user_permissions_stmt)

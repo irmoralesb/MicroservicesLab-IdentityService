@@ -13,11 +13,16 @@ from dotenv import load_dotenv
 import os
 import sqlalchemy as sa
 import uuid
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 
 load_dotenv()
 
 admin_password = os.getenv("ADMIN_PASSWORD")
 from passlib.context import CryptContext; 
+
+if admin_password is None:
+    raise Exception("Missing configuration value 'admin_password'")
+
 admin_hashed_password = CryptContext(schemes=['bcrypt']).hash(admin_password)
 
 # revision identifiers, used by Alembic.
@@ -32,7 +37,7 @@ def upgrade() -> None:
     # Create table references
     roles_table = sa.table(
         'roles',
-        sa.column('id', sa.String(36)),
+        sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
         sa.column('service_name', sa.String(50)),
         sa.column('name', sa.String(50)),
         sa.column('description', sa.String(200)),
@@ -41,7 +46,7 @@ def upgrade() -> None:
     
     permissions_table = sa.table(
         'permissions',
-        sa.column('id', sa.String(36)),
+        sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
         sa.column('service_name', sa.String(50)),
         sa.column('name', sa.String(50)),
         sa.column('resource', sa.String(50)),
@@ -51,14 +56,14 @@ def upgrade() -> None:
     
     role_permissions_table = sa.table(
         'role_permissions',
-        sa.column('id', sa.String(36)),
-        sa.column('role_id', sa.String(36)),
-        sa.column('permission_id', sa.String(36))
+        sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
+        sa.column('role_id', UNIQUEIDENTIFIER(as_uuid=True)),
+        sa.column('permission_id', UNIQUEIDENTIFIER(as_uuid=True))
     )
     
     users_table = sa.table(
         'users',
-        sa.column('id', sa.String(36)),
+        sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
         sa.column('first_name', sa.String(50)),
         sa.column('middle_name', sa.String(50)),
         sa.column('last_name', sa.String(50)),
@@ -70,17 +75,17 @@ def upgrade() -> None:
     
     user_roles_table = sa.table(
         'user_roles',
-        sa.column('id', sa.String(36)),
-        sa.column('user_id', sa.String(36)),
-        sa.column('role_id', sa.String(36))
+        sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
+        sa.column('user_id', UNIQUEIDENTIFIER(as_uuid=True)),
+        sa.column('role_id', UNIQUEIDENTIFIER(as_uuid=True))
     )
 
     # Service name for this identity service
     SERVICE_NAME = 'identity-service'
     
     # Generate UUIDs for roles
-    admin_role_id = str(uuid.uuid4())
-    user_role_id = str(uuid.uuid4())
+    admin_role_id = uuid.uuid4()
+    user_role_id = uuid.uuid4()
     
     # Insert roles
     op.bulk_insert(
@@ -107,7 +112,7 @@ def upgrade() -> None:
     permissions_data = [
         # User management permissions
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Create User',
             'resource': 'user',
@@ -115,7 +120,7 @@ def upgrade() -> None:
             'description': 'Permission to create new users'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Read User',
             'resource': 'user',
@@ -123,7 +128,7 @@ def upgrade() -> None:
             'description': 'Permission to view user information'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Update User',
             'resource': 'user',
@@ -131,7 +136,7 @@ def upgrade() -> None:
             'description': 'Permission to update user information'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Delete User',
             'resource': 'user',
@@ -140,7 +145,7 @@ def upgrade() -> None:
         },
         # Role management permissions
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Manage Roles',
             'resource': 'role',
@@ -148,7 +153,7 @@ def upgrade() -> None:
             'description': 'Permission to manage roles'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Assign Roles',
             'resource': 'role',
@@ -157,7 +162,7 @@ def upgrade() -> None:
         },
         # Permission management permissions
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Manage Permissions',
             'resource': 'permission',
@@ -165,7 +170,7 @@ def upgrade() -> None:
             'description': 'Permission to manage permissions'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Assign Permissions',
             'resource': 'permission',
@@ -174,7 +179,7 @@ def upgrade() -> None:
         },
         # Profile permissions
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Read Own Profile',
             'resource': 'profile',
@@ -182,7 +187,7 @@ def upgrade() -> None:
             'description': 'Permission to view own profile'
         },
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Update Own Profile',
             'resource': 'profile',
@@ -191,7 +196,7 @@ def upgrade() -> None:
         },
         # Authentication permissions
         {
-            'id': str(uuid.uuid4()),
+            'id': uuid.uuid4(),
             'service_name': SERVICE_NAME,
             'name': 'Refresh Token',
             'resource': 'auth',

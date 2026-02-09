@@ -3,14 +3,14 @@ from domain.entities.user_model import UserWithRolesModel
 from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 from infrastructure.repositories.role_repository import RoleRepository
 from core.settings import app_settings
-
+from uuid import UUID
 
 class AuthorizationService:
     """Service for handling authorization checks with service-scoped permissions"""
     
     def __init__(self, role_repo: RoleRepository):
         self.role_repo = role_repo
-        self.service_name = app_settings.service_name
+        self.service_id = app_settings.service_id
     
     async def check_permission(
         self, 
@@ -36,7 +36,7 @@ class AuthorizationService:
         # Check permission with service scope
         has_permission = await self.role_repo.check_user_permission(
             user.user,
-            self.service_name,
+            self.service_id,
             resource, 
             action
         )
@@ -49,7 +49,7 @@ class AuthorizationService:
     async def check_permission_for_service(
         self,
         user: UserWithRolesModel,
-        service_name: str,
+        service_id: UUID,
         resource: str,
         action: str
     ) -> bool:
@@ -71,7 +71,7 @@ class AuthorizationService:
         """
         has_permission = await self.role_repo.check_user_permission(
             user.user,
-            service_name,
+            service_id,
             resource,
             action
         )
@@ -85,7 +85,7 @@ class AuthorizationService:
         self, 
         user: UserWithRolesModel, 
         role_name: str,
-        service_name: str | None = None
+        service_id: UUID | None = None
     ) -> bool:
         """
         Check if user has specific role
@@ -101,12 +101,12 @@ class AuthorizationService:
         Raises:
             MissingRoleError: If user lacks required role
         """
-        target_service = service_name or self.service_name
+        target_id = service_id or self.service_id
         
         # Filter roles by service and name
         matching_roles = [
             role for role in user.roles 
-            if role.service == target_service and role.name == role_name
+            if role.service_id == target_id and role.name == role_name
         ]
         
         if not matching_roles:
@@ -129,7 +129,7 @@ class AuthorizationService:
         Returns:
             List of permission dictionaries
         """
-        target_service = service_name or self.service_name
+        target_service = service_name or self.service_id
         return await self.role_repo.get_user_permissions(
             user.user, 
             target_service

@@ -48,7 +48,7 @@ class RoleRepositoryInterface(ABC):
     async def check_user_permission(
         self,
         user: UserModel,
-        service_name: str,
+        service_id: UUID,
         resource: str,
         action: str,
     ) -> bool:
@@ -59,7 +59,7 @@ class RoleRepositoryInterface(ABC):
     async def get_user_permissions(
         self,
         user: UserModel,
-        service_name: str | None = None,
+        service_id: UUID | None = None,
     ) -> List[dict]:
         """Get permissions for a user with optional service filtering."""
         pass
