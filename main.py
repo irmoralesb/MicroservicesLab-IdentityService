@@ -145,7 +145,7 @@ if LOKI_ENABLED:
             "Identity Service started",
             extra={
                 "event_type": "application_startup",
-                "service_name": app_settings.service_name,
+                "service_name": app_settings.service_id,
                 "log_level": LOG_LEVEL,
                 "metrics_enabled": METRICS_ENABLED,
                 "loki_enabled": True,
@@ -166,7 +166,7 @@ if TRACING_ENABLED:
         # Setup Tempo tracer
         tracer_provider = setup_tempo_tracer(
             endpoint=app_settings.tempo_endpoint,
-            service_name=app_settings.service_name,
+            service_name=app_settings.service_id,
             sample_rate=app_settings.trace_sample_rate,
             enable_console_export=app_settings.enable_trace_console_export,
         )
@@ -189,7 +189,7 @@ if TRACING_ENABLED:
             "Distributed tracing initialized",
             extra={
                 "event_type": "tracing_startup",
-                "service_name": app_settings.service_name,
+                "service_name": app_settings.service_id,
                 "tempo_endpoint": app_settings.tempo_endpoint,
                 "sample_rate": app_settings.trace_sample_rate,
             }
