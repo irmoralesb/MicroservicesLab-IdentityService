@@ -40,6 +40,11 @@ class RoleRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    async def unassign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """Unassign a role from a user by ids."""
+        pass
+
+    @abstractmethod
     async def get_user_roles(self, user: UserModel) -> List[RoleModel]:
         """Get all roles assigned to a user."""
         pass

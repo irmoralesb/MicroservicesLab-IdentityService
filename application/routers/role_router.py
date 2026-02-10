@@ -19,6 +19,7 @@ from application.schemas.role_schema import (
 )
 from domain.exceptions.roles_errors import (
     AssignUserRoleError,
+    UnassignUserRoleError,
     RoleCreationError,
     RoleDeleteError,
     RoleListError,
@@ -203,6 +204,30 @@ async def assign_role(request: RoleAssignRequest, role_svc: RoleSvcDep) -> dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error assigning role: {str(exc)}",
+        )
+
+
+@router.post(
+    "/unassign",
+    status_code=status.HTTP_200_OK,
+    dependencies=[
+        Depends(require_role("admin")),
+        Depends(require_permission("role", "assign")),
+    ],
+)
+async def unassign_role(request: RoleAssignRequest, role_svc: RoleSvcDep) -> dict:
+    try:
+        success = await role_svc.unassign_role(request.user_id, request.role_id)
+        return {"success": success}
+    except (UnassignUserRoleError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error unassigning role: {str(exc)}",
         )
 
 

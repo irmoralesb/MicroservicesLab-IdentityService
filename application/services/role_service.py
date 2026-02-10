@@ -101,6 +101,19 @@ class RoleService:
         """
         return await self.role_repo.assign_role(user_id, role_id)
 
+    async def unassign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """
+        Unassign a role from a user.
+
+        Args:
+            user_id: User ID to unassign the role from
+            role_id: Role ID to unassign
+
+        Returns:
+            bool: True if unassignment succeeded
+        """
+        return await self.role_repo.unassign_role(user_id, role_id)
+
     async def get_user_roles(self, user: UserModel) -> List[RoleModel]:
         """
         Get roles assigned to a user.

@@ -79,8 +79,9 @@ async def get_user_profile(user_id: UUID, user_svc: UserSvcDep):
         )
 
 
-@router.put("", response_model=UserProfileResponse)
+@router.put("/{user_id}", response_model=UserProfileResponse)
 async def update_current_user(
+    user_id: UUID,
     update_user_request: UpdateProfileRequest,
     current_user: CurrentUserDep,
     user_svc: UserSvcDep
@@ -91,7 +92,7 @@ async def update_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unable to update user profile data")
 
-        user_profile = await user_svc.get_user_profile(current_user.user.id)
+        user_profile = await user_svc.get_user_profile(user_id)
 
         if user_profile is None:
             raise HTTPException(

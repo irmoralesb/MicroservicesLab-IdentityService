@@ -2,6 +2,7 @@ from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
 from domain.exceptions.roles_errors import (
     AssignUserRoleError,
+    UnassignUserRoleError,
     RoleCreationError,
     RoleDeleteError,
     RoleListError,
@@ -191,6 +192,37 @@ class RoleRepository(RoleRepositoryInterface):
             await self.db.rollback()
             raise AssignUserRoleError(
                 f"Error assigning role '{role_id}' to user {user_id}: {str(e)}"
+            ) from e
+
+    @track_database_operation(operation_type='delete', table='user_roles')
+    async def unassign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """Unassign a role from a user by ids."""
+        if user_id is None:
+            raise ValueError(
+                "Cannot unassign role from the user, no user id was provided.")
+
+        if role_id is None:
+            raise ValueError(
+                "Cannot unassign role from the user, no role id was provided.")
+
+        try:
+            user_role_stmt = select(UserRolesDataModel).where(
+                UserRolesDataModel.user_id == user_id,
+                UserRolesDataModel.role_id == role_id,
+            )
+            result = await self.db.execute(user_role_stmt)
+            user_role = result.scalars().first()
+
+            if user_role is None:
+                return False
+
+            await self.db.delete(user_role)
+            await self.db.commit()
+            return True
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise UnassignUserRoleError(
+                f"Error unassigning role '{role_id}' from user {user_id}: {str(e)}"
             ) from e
 
     @track_database_operation(operation_type='select', table='roles')

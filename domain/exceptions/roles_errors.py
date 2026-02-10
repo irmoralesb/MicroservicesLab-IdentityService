@@ -47,3 +47,11 @@ class AssignUserRoleError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
+
+
+class UnassignUserRoleError(Exception):
+    """Raised when unassigning a role from a user fails."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
