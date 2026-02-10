@@ -47,10 +47,10 @@ class TokenService:
         # Group roles by service
         roles_by_service: dict[str, list[str]] = {}
         for role in user_roles:
-            service = role.service_id
-            if service not in roles_by_service:
-                roles_by_service[service] = []
-            roles_by_service[service].append(role.name)
+            service_id = str(role.service_id)
+            if service_id not in roles_by_service:
+                roles_by_service[service_id] = []
+            roles_by_service[service_id].append(role.name)
         
         payload = TokenPayload(
             sub=user.id,
