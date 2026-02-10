@@ -78,6 +78,7 @@ async def get_auth_service(
 def get_token_service(
     role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    service_repo: Annotated[ServiceRepository, Depends(get_service_repository)]
 ) -> TokenService:
     """Provide a `TokenService` configured with settings."""
     return TokenService(
@@ -85,6 +86,7 @@ def get_token_service(
         app_settings.auth_algorithm,
         role_repo,
         user_repo,
+        service_repo
     )
 
 
