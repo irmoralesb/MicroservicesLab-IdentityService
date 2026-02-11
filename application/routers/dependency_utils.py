@@ -8,12 +8,14 @@ from infrastructure.databases.database import get_monitored_db_session
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
 from infrastructure.repositories.service_repository import ServiceRepository
+from infrastructure.repositories.permission_repository import PermissionRepository
 from application.services.user_service import UserService
 from application.services.auth_service import AuthenticateService
 from application.services.token_service import TokenService
 from application.services.authorization_service import AuthorizationService
 from application.services.service_service import ServiceService
 from application.services.role_service import RoleService
+from application.services.permission_service import PermissionService
 from domain.entities.user_model import UserWithRolesModel
 from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 
@@ -41,6 +43,13 @@ def get_service_repository(
     return ServiceRepository(db)
 
 
+def get_permission_repository(
+    db: Annotated[AsyncSession, Depends(get_db_session)]
+) -> PermissionRepository:
+    """Provide a `PermissionRepository` bound to the current DB session."""
+    return PermissionRepository(db)
+
+
 def get_user_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
     role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
@@ -63,6 +72,14 @@ def get_role_service(
 ) -> RoleService:
     """Provide a `RoleService`."""
     return RoleService(role_repo, service_svc)
+
+
+def get_permission_service(
+    permission_repo: Annotated[PermissionRepository, Depends(get_permission_repository)],
+    service_svc: Annotated[ServiceService, Depends(get_service_service)],
+) -> PermissionService:
+    """Provide a `PermissionService`."""
+    return PermissionService(permission_repo, service_svc)
 
 
 # Service dependencies
@@ -165,3 +182,4 @@ AuthzSvcDep = Annotated[AuthorizationService,
                         Depends(get_authorization_service)]
 RoleSvcDep = Annotated[RoleService, Depends(get_role_service)]
 ServiceSvcDep = Annotated[ServiceService, Depends(get_service_service)]
+PermissionSvcDep = Annotated[PermissionService, Depends(get_permission_service)]

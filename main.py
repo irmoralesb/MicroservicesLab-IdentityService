@@ -11,7 +11,11 @@ from domain.exceptions.auth_errors import (
     MissingRoleError,
     UnauthorizedUserError
 )
-from application.routers import auth_router, user_profile_router, role_router, service_router
+from domain.exceptions.permission_errors import (
+    PermissionNotFoundError,
+    PermissionStillAssignedError
+)
+from application.routers import auth_router, user_profile_router, role_router, service_router, permission_router
 from infrastructure.observability.logging.loki_handler import (
     setup_loki_handler,
     get_structured_logger,
@@ -77,6 +81,22 @@ async def role_exception_handler(request, exc: MissingRoleError):
 async def unauthorized_exception_handler(request, exc: UnauthorizedUserError):
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": str(exc)}
+    )
+
+
+@app.exception_handler(PermissionNotFoundError)
+async def permission_not_found_exception_handler(request, exc: PermissionNotFoundError):
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": str(exc)}
+    )
+
+
+@app.exception_handler(PermissionStillAssignedError)
+async def permission_still_assigned_exception_handler(request, exc: PermissionStillAssignedError):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
         content={"detail": str(exc)}
     )
 
@@ -205,6 +225,8 @@ app.include_router(auth_router.router)
 app.include_router(user_profile_router.router)
 app.include_router(service_router.router)
 app.include_router(role_router.router)
+app.include_router(permission_router.router)
+app.include_router(permission_router.role_permission_router)
 
 
 @app.get("/")
