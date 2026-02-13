@@ -5,6 +5,7 @@ from domain.entities.user_model import UserModel, UserWithRolesModel
 from infrastructure.repositories.role_repository import RoleRepository
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.service_repository import ServiceRepository
+from domain.exceptions.services_errors import ServiceNotFoundError
 from infrastructure.observability.metrics.decorators import track_token_operation
 from infrastructure.observability.logging.decorators import log_token_operation_decorator
 from infrastructure.observability.tracing.decorators import trace_token_operation
@@ -63,7 +64,7 @@ class TokenService:
             
             service_name = service_id_to_name.get(role.service_id)
             if service_name is None:
-                raise Exception(f"No service found for service id : {role.service_id}")
+                raise ServiceNotFoundError(role.service_id)
             
             if service_name not in roles_by_service:
                 roles_by_service[service_name] = []
