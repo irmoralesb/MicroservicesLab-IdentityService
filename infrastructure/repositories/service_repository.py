@@ -110,3 +110,18 @@ class ServiceRepository(ServiceRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise ServiceUpdateError(service.name) from e
+
+    async def get_by_ids(self, service_ids: List[uuid.UUID]) -> List[ServiceModel]:
+        try:
+            if not service_ids:
+                return []
+            
+            get_by_ids_stmt = select(ServiceDataModel).where(
+                ServiceDataModel.id.in_(service_ids)
+            )
+            result = await self.db.execute(get_by_ids_stmt)
+            services_datamodel = result.scalars().all()
+            return [self._to_domain(svc) for svc in services_datamodel]
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise ServiceDataAccessError() from e
