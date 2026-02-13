@@ -1,5 +1,4 @@
 from infrastructure.repositories.service_repository import ServiceRepository
-from infrastructure.repositories.role_repository import RoleRepository
 from domain.entities.service_model import ServiceModel
 from domain.exceptions.services_errors import ServiceNotFoundError
 from typing import List
@@ -7,9 +6,8 @@ from uuid import UUID
 
 
 class ServiceService:
-    def __init__(self, service_repo: ServiceRepository, role_repo: RoleRepository) -> None:
+    def __init__(self, service_repo: ServiceRepository) -> None:
         self.service_repo = service_repo
-        self.role_repo = role_repo
 
     async def get_service(self, service_id: UUID) -> ServiceModel | None:
         if service_id is None:

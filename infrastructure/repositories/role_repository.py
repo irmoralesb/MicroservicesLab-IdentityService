@@ -233,12 +233,9 @@ class RoleRepository(RoleRepositoryInterface):
 
         try:
             get_role_stmt = select(
-                RolesDataModel,
-                ServiceDataModel.name
+                RolesDataModel
             ).join(
                 UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id
-            ).join(
-                ServiceDataModel, RolesDataModel.service_id == ServiceDataModel.id
             ).where(
                 UserRolesDataModel.user_id == user.id
             )

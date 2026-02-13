@@ -53,7 +53,7 @@ async def get_role_by_name(
     try:
         role = await role_svc.get_role_by_name(service_id, role_name)
         return RoleResponse.from_model(role)
-    except (RoleNotFoundError, AttributeError) as exc:
+    except (RoleNotFoundError) as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
@@ -108,7 +108,17 @@ async def create_role(request: RoleCreateRequest, role_svc: RoleSvcDep) -> RoleR
     try:
         created_role = await role_svc.create_role(request.to_model())
         return RoleResponse.from_model(created_role)
-    except (RoleCreationError, ValueError) as exc:
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc)
+        )
+    except ServiceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc)
+        )
+    except RoleCreationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),

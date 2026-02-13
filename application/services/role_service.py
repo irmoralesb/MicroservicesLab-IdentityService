@@ -3,6 +3,7 @@ from uuid import UUID
 
 from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
+from domain.exceptions.roles_errors import UnspecifiedRoleServiceId
 from infrastructure.repositories.role_repository import RoleRepository
 from application.services.service_service import ServiceService
 
@@ -62,6 +63,10 @@ class RoleService:
         Returns:
             RoleModel: Created role
         """
+        if role.service_id is None:
+            raise UnspecifiedRoleServiceId(role.name)
+
+        await self.service_svc.get_service(role.service_id)
         return await self.role_repo.create_role(role)
 
     async def update_role(self, role: RoleModel) -> RoleModel:

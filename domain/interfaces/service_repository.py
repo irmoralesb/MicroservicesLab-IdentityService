@@ -18,3 +18,11 @@ class ServiceRepositoryInterface(ABC):
     async def get_by_name(self, service_name: str) -> ServiceModel | None:
         pass
 
+    @abstractmethod
+    async def create_service(self, service: ServiceModel) -> ServiceModel:
+        pass
+
+    @abstractmethod
+    async def update_service(self, service: ServiceModel) -> ServiceModel:
+        pass
+

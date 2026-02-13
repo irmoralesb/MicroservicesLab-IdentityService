@@ -35,7 +35,7 @@ async def get_services(service_svc: ServiceSvcDep) -> list[ServiceResponse]:
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching services: {str(exc)}",
+            detail=f"Error fetching services.",
         )
 
 
@@ -53,8 +53,8 @@ async def get_service(service_id: UUID, service_svc: ServiceSvcDep) -> ServiceRe
         service = await service_svc.get_service(service_id)
         if service is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Service not found.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Invalid service id.",
             )
         return ServiceResponse.from_model(service)
     except ServiceNotFoundError as exc:

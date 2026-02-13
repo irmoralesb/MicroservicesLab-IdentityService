@@ -1,6 +1,10 @@
 from domain.interfaces.service_repository import ServiceRepositoryInterface
 from domain.entities.service_model import ServiceModel
-from domain.exceptions.services_errors import ServiceCreationError, ServiceNotFoundError
+from domain.exceptions.services_errors import (
+    ServiceCreationError,
+    ServiceUpdateError,
+    ServiceNotFoundError,
+    ServiceDataAccessError)
 from infrastructure.databases.models import ServiceDataModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +53,7 @@ class ServiceRepository(ServiceRepositoryInterface):
             return [self._to_domain(svc) for svc in services_datamodel]
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise ServiceNotFoundError(None) from e
+            raise ServiceDataAccessError() from e
 
     async def get_by_id(self, service_id: uuid.UUID) -> ServiceModel | None:
         try:
@@ -58,10 +62,10 @@ class ServiceRepository(ServiceRepositoryInterface):
             )
             result = await self.db.execute(get_by_id_stmt)
             service_datamodel = result.scalars().first()
-            return None if service_datamodel == None else self._to_domain(service_datamodel)
+            return None if service_datamodel is None else self._to_domain(service_datamodel)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise ServiceNotFoundError(service_id) from e
+            raise ServiceDataAccessError() from e
 
     async def get_by_name(self, service_name: str) -> ServiceModel | None:
         try:
@@ -105,4 +109,4 @@ class ServiceRepository(ServiceRepositoryInterface):
             return self._to_domain(service_db)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise ServiceCreationError(service.name) from e
+            raise ServiceUpdateError(service.name) from e

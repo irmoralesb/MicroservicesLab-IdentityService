@@ -55,3 +55,10 @@ class UnassignUserRoleError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
+
+class UnspecifiedRoleServiceId(Exception):
+    """Raised when the role has an invalid service id"""
+
+    def __init__(self, role_name: str) -> None:
+        self.role_name = role_name
+        super().__init__(f"Unspecified Service id to role {role_name}")

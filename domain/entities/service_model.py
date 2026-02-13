@@ -4,7 +4,7 @@ from uuid import UUID
 
 @dataclass
 class ServiceModel:
-    id: UUID
+    id: UUID | None
     name: str
     description: str | None
     is_active: bool
