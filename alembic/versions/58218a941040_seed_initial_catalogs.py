@@ -6,7 +6,6 @@ Create Date: 2026-01-16 22:34:12.576242
 
 """
 from typing import Sequence, Union
-from datetime import datetime, UTC
 
 from alembic import op
 from dotenv import load_dotenv

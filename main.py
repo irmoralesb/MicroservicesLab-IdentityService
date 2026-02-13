@@ -165,7 +165,7 @@ if LOKI_ENABLED:
             "Identity Service started",
             extra={
                 "event_type": "application_startup",
-                "service_name": app_settings.service_id,
+                "service_id": app_settings.service_id,
                 "log_level": LOG_LEVEL,
                 "metrics_enabled": METRICS_ENABLED,
                 "loki_enabled": True,

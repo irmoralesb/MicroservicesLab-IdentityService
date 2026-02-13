@@ -20,6 +20,16 @@ class ServiceService:
 
         return current_svc
 
+    async def get_service_by_name(self, service_name: str) -> ServiceModel | None:
+        if service_name is None:
+            return None
+
+        current_svc = await self.service_repo.get_by_name(service_name)
+        if current_svc is None:
+            raise ServiceNotFoundError(None)
+
+        return current_svc
+
     async def get_all_services(self) -> List[ServiceModel]:
         return await self.service_repo.get_all()
 

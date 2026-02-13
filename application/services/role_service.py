@@ -150,9 +150,14 @@ class RoleService:
         Returns:
             bool: True if user has permission
         """
+        service_svc = await self.service_svc.get_service_by_name(service_name)
+
+        if service_svc is None or service_svc.id is None:
+            return False 
+
         return await self.role_repo.check_user_permission(
             user,
-            service_name,
+            service_svc.id,
             resource,
             action,
         )

@@ -5,6 +5,7 @@ from domain.exceptions.permission_errors import (
     PermissionUpdateError,
     PermissionDeleteError,
     PermissionStillAssignedError,
+    PermissionReadError
 )
 from domain.interfaces.permission_repository import PermissionRepositoryInterface
 from sqlalchemy import select
@@ -83,7 +84,7 @@ class PermissionRepository(PermissionRepositoryInterface):
             permission_data = result.scalars().all()
             return [self._to_domain(permission) for permission in permission_data]
         except SQLAlchemyError as e:
-            raise PermissionCreationError(f"Error fetching permissions for service {service_id}") from e
+            raise PermissionReadError(f"Error fetching permissions for service {service_id}") from e
 
     @track_database_operation(operation_type='insert', table='permissions')
     async def create(self, permission: PermissionModel) -> PermissionModel:

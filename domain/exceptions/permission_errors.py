@@ -41,3 +41,10 @@ class PermissionStillAssignedError(Exception):
         super().__init__(
             f"Cannot delete permission {permission_id} because it is still assigned to one or more roles"
         )
+
+class PermissionReadError(Exception):
+    """Raised when a read attempt fails"""
+
+    def __init__(self, message:str) -> None:
+        self.message = message
+        super().__init__(message)

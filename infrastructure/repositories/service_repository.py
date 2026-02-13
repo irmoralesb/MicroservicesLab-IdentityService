@@ -77,7 +77,7 @@ class ServiceRepository(ServiceRepositoryInterface):
             return None if service_datamodel is None else self._to_domain(service_datamodel)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise ServiceNotFoundError(None) from e
+            raise ServiceDataAccessError() from e
 
     async def create_service(self, service: ServiceModel) -> ServiceModel:
         try:

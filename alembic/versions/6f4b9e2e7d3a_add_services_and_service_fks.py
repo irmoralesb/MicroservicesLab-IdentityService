@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 
 
 # revision identifiers, used by Alembic.
@@ -22,7 +23,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
         'services',
-        sa.Column('id', sa.String(length=36), nullable=False),
+        sa.Column('id', UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column('name', sa.String(length=50), nullable=False,
                   comment='Service name used for RBAC scoping'),
         sa.Column('description', sa.String(length=255), nullable=True,
@@ -43,8 +44,8 @@ def upgrade() -> None:
     )
     op.create_index('ix_services_name', 'services', ['name'], unique=False)
 
-    op.add_column('roles', sa.Column('service_id', sa.String(length=36), nullable=True))
-    op.add_column('permissions', sa.Column('service_id', sa.String(length=36), nullable=True))
+    op.add_column('roles', sa.Column('service_id', UNIQUEIDENTIFIER(as_uuid=True), nullable=True))
+    op.add_column('permissions', sa.Column('service_id', UNIQUEIDENTIFIER(as_uuid=True), nullable=True))
 
     op.create_foreign_key(
         'fk_roles_service_id', 'roles', 'services',
@@ -89,13 +90,13 @@ def upgrade() -> None:
     op.alter_column(
         'roles',
         'service_id',
-        existing_type=sa.String(length=36),
+        existing_type=UNIQUEIDENTIFIER(as_uuid=True),
         nullable=False
     )
     op.alter_column(
         'permissions',
         'service_id',
-        existing_type=sa.String(length=36),
+        existing_type=UNIQUEIDENTIFIER(as_uuid=True),
         nullable=False
     )
 

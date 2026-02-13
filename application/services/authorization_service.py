@@ -117,7 +117,7 @@ class AuthorizationService:
     async def get_user_permissions_for_service(
         self,
         user: UserWithRolesModel,
-        service_name: str | None = None
+        service_id: UUID | None = None
     ) -> List[dict]:
         """
         Get all user permissions for a specific service
@@ -129,8 +129,9 @@ class AuthorizationService:
         Returns:
             List of permission dictionaries
         """
-        target_service = service_name or self.service_id
+        
+        target_id = service_id or self.service_id
         return await self.role_repo.get_user_permissions(
             user.user, 
-            target_service
+            target_id
         )

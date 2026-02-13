@@ -59,11 +59,10 @@ def get_user_service(
 
 
 def get_service_service(
-    service_repo: Annotated[ServiceRepository, Depends(get_service_repository)],
-    role_repo: Annotated[RoleRepository, Depends(get_role_repository)],
+    service_repo: Annotated[ServiceRepository, Depends(get_service_repository)]
 ) -> ServiceService:
     """Provide a `ServiceService`."""
-    return ServiceService(service_repo, role_repo)
+    return ServiceService(service_repo)
 
 
 def get_role_service(

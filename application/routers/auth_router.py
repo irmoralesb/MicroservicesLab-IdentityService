@@ -35,10 +35,7 @@ async def create_user(
     new_user: UserModel = create_user_request._to_model()
     
     try:
-        created_user = await user_svc.create_user(
-            new_user, 
-            app_settings.default_user_role
-        )
+        created_user = await user_svc.create_user(new_user)
         
         return schema.UserResponse.from_UserModel(created_user)
         
