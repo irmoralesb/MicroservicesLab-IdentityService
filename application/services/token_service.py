@@ -46,17 +46,28 @@ class TokenService:
         # Fetch user roles
         user_roles = await self.role_repo.get_user_roles(user)
         
+        # Collect unique service IDs
+        unique_service_ids = list({role.service_id for role in user_roles if role.service_id is not None})
+        
+        # Fetch all services in a single query
+        services = await self.service_repo.get_by_ids(unique_service_ids)
+        
+        # Create a mapping from service_id to service_name
+        service_id_to_name = {svc.id: svc.name for svc in services}
+        
         # Group roles by service
         roles_by_service: dict[str, list[str]] = {}
         for role in user_roles:
-            service_id = str(role.service_id)
-            service_model = await self.service_repo.get_by_id(role.service_id)
-            if service_model is None:
-                    raise Exception(f"No service found for service id : {service_id}")
+            if role.service_id is None:
+                continue
             
-            if service_model.name not in roles_by_service:
-                roles_by_service[service_model.name] = []
-            roles_by_service[service_model.name].append(role.name)
+            service_name = service_id_to_name.get(role.service_id)
+            if service_name is None:
+                raise Exception(f"No service found for service id : {role.service_id}")
+            
+            if service_name not in roles_by_service:
+                roles_by_service[service_name] = []
+            roles_by_service[service_name].append(role.name)
         
         payload = TokenPayload(
             sub=user.id,

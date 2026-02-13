@@ -26,3 +26,7 @@ class ServiceRepositoryInterface(ABC):
     async def update_service(self, service: ServiceModel) -> ServiceModel:
         pass
 
+    @abstractmethod
+    async def get_by_ids(self, service_ids: List[uuid.UUID]) -> List[ServiceModel]:
+        pass
+
