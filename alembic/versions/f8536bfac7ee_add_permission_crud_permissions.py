@@ -42,7 +42,7 @@ def upgrade() -> None:
     permissions_table = sa.table(
         'permissions',
         sa.column('id', UNIQUEIDENTIFIER(as_uuid=True)),
-        sa.column('service_id', sa.String(36)),
+        sa.column('service_id', UNIQUEIDENTIFIER(as_uuid=True)),
         sa.column('name', sa.String(50)),
         sa.column('resource', sa.String(50)),
         sa.column('action', sa.String(30)),
