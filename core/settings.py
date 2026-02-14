@@ -157,7 +157,6 @@ class Settings(BaseSettings):
 
     # Service Configuration
     service_id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
         description="Id of this microservice for RBAC scoping and tracing"
     )
     

@@ -20,6 +20,8 @@ from domain.exceptions.permission_errors import (
     PermissionNotFoundError,
     PermissionStillAssignedError,
     PermissionUpdateError,
+    PermissionAssignError,
+    PermissionUnassignError,
 )
 from domain.exceptions.services_errors import ServiceNotFoundError
 
@@ -236,7 +238,7 @@ async def assign_permission_to_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except (PermissionCreationError, ValueError) as exc:
+    except (PermissionAssignError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -270,7 +272,7 @@ async def unassign_permission_from_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except (PermissionDeleteError, ValueError) as exc:
+    except (PermissionUnassignError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
