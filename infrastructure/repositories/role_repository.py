@@ -134,7 +134,7 @@ class RoleRepository(RoleRepositoryInterface):
             self._update_datamodel(role, role_data)
             await self.db.commit()
             await self.db.refresh(role_data)
-            
+
             return self._to_domain(role_data)
         except RoleNotFoundError:
             raise

@@ -32,9 +32,9 @@ class UserDataModel(Base):
         DateTime(timezone=True), nullable=True,
         comment="Timestamp until which the account is locked")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+        DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+        DateTime, server_default=func.now(), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
 
@@ -66,9 +66,9 @@ class ServiceDataModel(Base):
         Integer, nullable=True,
         comment="Network port for the service")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+        DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.getutcdate(), nullable=False)
+        DateTime, server_default=func.now(), nullable=False)
 
 
 class RolesDataModel(Base):

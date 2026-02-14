@@ -326,7 +326,7 @@ async def get_user_permissions(
     user_id: UUID,
     user_svc: UserSvcDep,
     role_svc: RoleSvcDep,
-    service_name: str | None = None,
+    service_name: str,
 ) -> list[PermissionEntry]:
     try:
         user = await user_svc.get_user_profile(user_id)

@@ -165,7 +165,7 @@ class RoleService:
     async def get_user_permissions(
         self,
         user: UserModel,
-        service_name: str | None = None,
+        service_name: str,
     ) -> List[dict]:
         """
         Get permissions for a user with optional service filtering.
@@ -176,5 +176,10 @@ class RoleService:
 
         Returns:
             List[dict]: Permission entries
-        """
-        return await self.role_repo.get_user_permissions(user, service_name)
+        """ 
+        service_svc = await self.service_svc.get_service_by_name(service_name)
+
+        if service_svc is None:
+            return []
+
+        return await self.role_repo.get_user_permissions(user, service_svc.id)

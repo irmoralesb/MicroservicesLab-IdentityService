@@ -5,7 +5,9 @@ from domain.exceptions.permission_errors import (
     PermissionUpdateError,
     PermissionDeleteError,
     PermissionStillAssignedError,
-    PermissionReadError
+    PermissionReadError,
+    PermissionAssignError,
+    PermissionUnassignError,
 )
 from domain.interfaces.permission_repository import PermissionRepositoryInterface
 from sqlalchemy import select
@@ -191,7 +193,7 @@ class PermissionRepository(PermissionRepositoryInterface):
 
             return result
         except SQLAlchemyError as e:
-            raise PermissionCreationError(
+            raise PermissionReadError(
                 f"Error fetching permissions for role {role_id}"
             ) from e
 
@@ -227,7 +229,7 @@ class PermissionRepository(PermissionRepositoryInterface):
             return True
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise PermissionCreationError(
+            raise PermissionAssignError(
                 f"Error assigning permission '{permission_id}' to role {role_id}: {str(e)}"
             ) from e
 
@@ -238,7 +240,7 @@ class PermissionRepository(PermissionRepositoryInterface):
             raise ValueError("Cannot unassign permission, no role id was provided.")
 
         if permission_id is None:
-            raise ValueError("Cannot unassign permission, no permission id was provided.")
+            raise PermissionUnassignError("Cannot unassign permission, no permission id was provided.")
 
         try:
             role_permission_stmt = select(RolePermissionsDataModel).where(
@@ -256,7 +258,7 @@ class PermissionRepository(PermissionRepositoryInterface):
             return True
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise PermissionDeleteError(permission_id) from e
+            raise PermissionUnassignError(f"Cannot unassign permission for {permission_id}.") from e
 
     @track_database_operation(operation_type='select', table='role_permissions')
     async def is_assigned_to_any_role(self, permission_id: UUID) -> bool:
@@ -269,6 +271,6 @@ class PermissionRepository(PermissionRepositoryInterface):
             result = await self.db.execute(check_stmt)
             return result.scalars().first() is not None
         except SQLAlchemyError as e:
-            raise PermissionCreationError(
+            raise PermissionReadError(
                 f"Error checking if permission {permission_id} is assigned: {str(e)}"
             ) from e

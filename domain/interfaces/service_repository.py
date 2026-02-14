@@ -4,10 +4,10 @@ from typing import List
 import uuid
 
 class ServiceRepositoryInterface(ABC):
-    """Abstract base class defining the interface for user repository operations"""
+    """Abstract base class defining the interface for service repository operations"""
 
     @abstractmethod
-    async def get_all(self)-> List[ServiceModel]:
+    async def get_all(self) -> List[ServiceModel]:
         pass
 
     @abstractmethod

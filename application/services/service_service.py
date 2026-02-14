@@ -1,6 +1,6 @@
 from infrastructure.repositories.service_repository import ServiceRepository
 from domain.entities.service_model import ServiceModel
-from domain.exceptions.services_errors import ServiceNotFoundError
+from domain.exceptions.services_errors import ServiceNotFoundError, ServiceNameNotFoundError
 from typing import List
 from uuid import UUID
 
@@ -26,7 +26,7 @@ class ServiceService:
 
         current_svc = await self.service_repo.get_by_name(service_name)
         if current_svc is None:
-            raise ServiceNotFoundError(None)
+            raise ServiceNameNotFoundError(service_name)
 
         return current_svc
 

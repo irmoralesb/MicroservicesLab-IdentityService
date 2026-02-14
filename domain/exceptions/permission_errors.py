@@ -48,3 +48,18 @@ class PermissionReadError(Exception):
     def __init__(self, message:str) -> None:
         self.message = message
         super().__init__(message)
+
+class PermissionAssignError(Exception):
+    """Raised when a assign attempt fails"""
+
+    def __init__(self, message:str) -> None:
+        self.message = message
+        super().__init__(message)
+
+class PermissionUnassignError(Exception):
+    """Raised when a unassign attempt fails"""
+
+    def __init__(self, message:str) -> None:
+        self.message = message
+        super().__init__(message)
+

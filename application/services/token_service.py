@@ -54,7 +54,7 @@ class TokenService:
             if service_model is None:
                     raise Exception(f"No service found for service id : {service_id}")
             
-            if service_model.name not in roles_by_service:
+            if service_id not in roles_by_service:
                 roles_by_service[service_model.name] = []
             roles_by_service[service_model.name].append(role.name)
         
