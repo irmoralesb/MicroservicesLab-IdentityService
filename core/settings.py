@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import timedelta
 from typing import Optional
 import os
+import uuid
 
 class Settings(BaseSettings):
     """
@@ -155,9 +156,8 @@ class Settings(BaseSettings):
     )
 
     # Service Configuration
-    service_name: str = Field(
-        default="identity-service",
-        description="Name of this microservice for RBAC scoping and tracing"
+    service_id: uuid.UUID = Field(
+        description="Id of this microservice for RBAC scoping and tracing"
     )
     
     model_config = SettingsConfigDict(

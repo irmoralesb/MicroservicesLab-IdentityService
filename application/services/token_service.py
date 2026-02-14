@@ -4,6 +4,7 @@ from domain.entities.token_model import TokenPayload
 from domain.entities.user_model import UserModel, UserWithRolesModel
 from infrastructure.repositories.role_repository import RoleRepository
 from infrastructure.repositories.user_repository import UserRepository
+from infrastructure.repositories.service_repository import ServiceRepository
 from infrastructure.observability.metrics.decorators import track_token_operation
 from infrastructure.observability.logging.decorators import log_token_operation_decorator
 from infrastructure.observability.tracing.decorators import trace_token_operation
@@ -12,11 +13,12 @@ from infrastructure.observability.tracing.decorators import trace_token_operatio
 class TokenService:
     """Service for creating and validating JWT tokens"""
     
-    def __init__(self, secret_key: str, algorithm: str, role_repo: RoleRepository, user_repo: UserRepository):
+    def __init__(self, secret_key: str, algorithm: str, role_repo: RoleRepository, user_repo: UserRepository, service_repo: ServiceRepository):
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.role_repo = role_repo
         self.user_repo = user_repo
+        self.service_repo = service_repo
     
     @track_token_operation(operation_type='generate', token_type='access')
     @log_token_operation_decorator(operation_type='generate', token_type='access')
@@ -47,10 +49,14 @@ class TokenService:
         # Group roles by service
         roles_by_service: dict[str, list[str]] = {}
         for role in user_roles:
-            service = role.service
-            if service not in roles_by_service:
-                roles_by_service[service] = []
-            roles_by_service[service].append(role.name)
+            service_id = str(role.service_id)
+            service_model = await self.service_repo.get_by_id(role.service_id)
+            if service_model is None:
+                    raise Exception(f"No service found for service id : {service_id}")
+            
+            if service_id not in roles_by_service:
+                roles_by_service[service_model.name] = []
+            roles_by_service[service_model.name].append(role.name)
         
         payload = TokenPayload(
             sub=user.id,

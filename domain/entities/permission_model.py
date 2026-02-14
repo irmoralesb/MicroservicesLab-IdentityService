@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from uuid import UUID
 
 @dataclass
-class RoleModel:
+class PermissionModel:
     id: UUID | None
+    service_id: UUID
     name: str
+    resource: str
+    action: str
     description: str
-    service_id: UUID | None = None

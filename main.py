@@ -11,7 +11,11 @@ from domain.exceptions.auth_errors import (
     MissingRoleError,
     UnauthorizedUserError
 )
-from application.routers import auth_router, user_profile_router
+from domain.exceptions.permission_errors import (
+    PermissionNotFoundError,
+    PermissionStillAssignedError
+)
+from application.routers import auth_router, user_profile_router, role_router, service_router, permission_router
 from infrastructure.observability.logging.loki_handler import (
     setup_loki_handler,
     get_structured_logger,
@@ -81,6 +85,22 @@ async def unauthorized_exception_handler(request, exc: UnauthorizedUserError):
     )
 
 
+@app.exception_handler(PermissionNotFoundError)
+async def permission_not_found_exception_handler(request, exc: PermissionNotFoundError):
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": str(exc)}
+    )
+
+
+@app.exception_handler(PermissionStillAssignedError)
+async def permission_still_assigned_exception_handler(request, exc: PermissionStillAssignedError):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": str(exc)}
+    )
+
+
 # Prometheus metrics configuration
 METRICS_ENABLED = app_settings.metrics_enabled
 METRICS_ENDPOINT = app_settings.metrics_endpoint
@@ -145,7 +165,7 @@ if LOKI_ENABLED:
             "Identity Service started",
             extra={
                 "event_type": "application_startup",
-                "service_name": app_settings.service_name,
+                "service_id": app_settings.service_id,
                 "log_level": LOG_LEVEL,
                 "metrics_enabled": METRICS_ENABLED,
                 "loki_enabled": True,
@@ -166,7 +186,7 @@ if TRACING_ENABLED:
         # Setup Tempo tracer
         tracer_provider = setup_tempo_tracer(
             endpoint=app_settings.tempo_endpoint,
-            service_name=app_settings.service_name,
+            service_name=app_settings.service_id,
             sample_rate=app_settings.trace_sample_rate,
             enable_console_export=app_settings.enable_trace_console_export,
         )
@@ -189,7 +209,7 @@ if TRACING_ENABLED:
             "Distributed tracing initialized",
             extra={
                 "event_type": "tracing_startup",
-                "service_name": app_settings.service_name,
+                "service_name": app_settings.service_id,
                 "tempo_endpoint": app_settings.tempo_endpoint,
                 "sample_rate": app_settings.trace_sample_rate,
             }
@@ -203,6 +223,10 @@ else:
 
 app.include_router(auth_router.router)
 app.include_router(user_profile_router.router)
+app.include_router(service_router.router)
+app.include_router(role_router.router)
+app.include_router(permission_router.router)
+app.include_router(permission_router.role_permission_router)
 
 
 @app.get("/")

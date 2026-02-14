@@ -1,8 +1,7 @@
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.role_repository import RoleRepository
 from domain.entities.user_model import UserModel
-from domain.entities.role_model import RoleModel
-from domain.exceptions.auth_errors import UserCreationError, PasswordChangeError
+from domain.exceptions.auth_errors import PasswordChangeError
 from core.security import get_bcrypt_context
 from core.password_validator import PasswordValidator
 from uuid import UUID
@@ -36,7 +35,7 @@ class UserService:
     @track_user_operation(operation_type='create')
     @log_user_operation_decorator(operation_type='create')
     @trace_user_operation(operation_type='create')
-    async def create_user_with_default_role(self, user: UserModel, default_role_name: str) -> UserModel:
+    async def create_user(self, user: UserModel) -> UserModel:
         """
         Create a new user and assign them the default role
 
@@ -50,13 +49,7 @@ class UserService:
         Raises:
             UserCreationError: If user creation or role assignment fails
         """
-        user_default_role: RoleModel = await self.role_repo.get_by_name(default_role_name)
         new_user: UserModel = await self.user_repo.create_user(user)
-
-        is_success = bool = await self.role_repo.assign_role(new_user, user_default_role)
-
-        if not is_success:
-            raise UserCreationError("Failed to assign default role to user")
 
         return new_user
 

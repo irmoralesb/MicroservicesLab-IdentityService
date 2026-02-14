@@ -1,11 +1,20 @@
 from domain.entities.role_model import RoleModel
 from domain.entities.user_model import UserModel
-from domain.exceptions.roles_errors import AssignUserRoleError, RoleNotFoundError
+from domain.exceptions.roles_errors import (
+    AssignUserRoleError,
+    UnassignUserRoleError,
+    RoleCreationError,
+    RoleDeleteError,
+    RoleListError,
+    RoleNotFoundError,
+    RoleUpdateError,
+)
 from domain.interfaces.role_repository import RoleRepositoryInterface
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from infrastructure.databases.models import (
+    ServiceDataModel,
     RolesDataModel,
     UserRolesDataModel,
     RolePermissionsDataModel,
@@ -16,6 +25,7 @@ from infrastructure.observability.metrics.decorators import (
     track_database_operation,
     track_permission_check
 )
+from uuid import UUID
 
 
 class RoleRepository(RoleRepositoryInterface):
@@ -25,50 +35,153 @@ class RoleRepository(RoleRepositoryInterface):
     def _to_domain(self, db_role: RolesDataModel) -> RoleModel:
         return RoleModel(
             id=db_role.id,
-            service=db_role.service_name,
             name=db_role.name,
-            description=db_role.description
+            description=db_role.description,
+            service_id=db_role.service_id
         )
 
     def _to_datamodel(self, role: RoleModel) -> RolesDataModel:
+        service_id = getattr(role, "service_id", None)
+        if service_id is None:
+            raise ValueError("RoleModel.service_id is required to persist roles")
         return RolesDataModel(
             id=role.id,
-            service_name=role.service,
+            service_id=service_id,
             name=role.name,
             description=role.description
         )
 
-    @track_database_operation(operation_type='select', table='roles')
-    async def get_by_name(self, role_name: str) -> RoleModel:
-        try:
-            role_info_stmt = select(RolesDataModel).where(
-                RolesDataModel.name == role_name)
-            result = await self.db.execute(role_info_stmt)
-            user_role_info = result.scalars().first()
+    def _update_datamodel(self, role: RoleModel, role_data: RolesDataModel) -> None:
+        """Update role data model values from a role model."""
+        role_data.name = role.name
+        role_data.description = role.description
+        if role.service_id is not None:
+            role_data.service_id = role.service_id
 
-            if not user_role_info:
+    @track_database_operation(operation_type='select', table='roles')
+    async def get_by_name(self, service_id: UUID, role_name: str) -> RoleModel:
+        try:
+            role_info_stmt = select(
+                RolesDataModel
+            ).where(
+                RolesDataModel.name == role_name,
+                RolesDataModel.service_id == service_id
+            )
+            result = await self.db.execute(role_info_stmt)
+            db_role = result.scalars().first()
+
+            if db_role is None:
                 raise RoleNotFoundError(role_name)
 
-            return self._to_domain(user_role_info)
+            return self._to_domain(db_role)
         except RoleNotFoundError:
             raise
         except SQLAlchemyError as e:
             raise RoleNotFoundError(role_name) from e
 
-    @track_database_operation(operation_type='insert', table='user_roles')
-    async def assign_role(self, user: UserModel, role: RoleModel) -> bool:
-        if user is None:
-            raise ValueError(
-                "Cannot assign role to the user, no user data was provided.")
+    @track_database_operation(operation_type='select', table='roles')
+    async def get_role_list(self, service_id: UUID) -> List[RoleModel]:
+        """Get all roles for a given service id."""
+        try:
+            role_list_stmt = select(
+                RolesDataModel
+            ).where(
+                RolesDataModel.service_id == service_id
+            )
 
+            result = await self.db.execute(role_list_stmt)
+            role_data = result.scalars().all()
+            return [self._to_domain(role) for role in role_data]
+        except SQLAlchemyError as e:
+            raise RoleListError(service_id) from e
+
+    @track_database_operation(operation_type='insert', table='roles')
+    async def create_role(self, role: RoleModel) -> RoleModel:
+        """Create a new role assigned to a service."""
         if role is None:
+            raise ValueError("Cannot create role, no data was provided.")
+
+        if role.service_id is None:
+            raise ValueError("RoleModel.service_id is required to create roles")
+
+        try:
+            role_db = self._to_datamodel(role)
+            self.db.add(role_db)
+            await self.db.commit()
+            await self.db.refresh(role_db)
+
+            return self._to_domain(role_db)
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleCreationError(role.name) from e
+
+    @track_database_operation(operation_type='update', table='roles')
+    async def update_role(self, role: RoleModel) -> RoleModel:
+        """Update an existing role by id."""
+        if role is None or role.id is None:
+            raise RoleNotFoundError("Unknown")
+
+        try:
+            get_role_stmt = select(RolesDataModel).where(
+                RolesDataModel.id == role.id
+            )
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().first()
+
+            if role_data is None:
+                raise RoleNotFoundError(role.id)
+
+            self._update_datamodel(role, role_data)
+            await self.db.commit()
+            await self.db.refresh(role_data)
+
+            return self._to_domain(role_data)
+        except RoleNotFoundError:
+            raise
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleUpdateError(role.id) from e
+
+    @track_database_operation(operation_type='delete', table='roles')
+    async def delete_role(self, role_id: UUID) -> bool:
+        """Delete a role by id."""
+        if role_id is None:
+            raise RoleNotFoundError("Unknown")
+
+        try:
+            get_role_stmt = select(RolesDataModel).where(
+                RolesDataModel.id == role_id
+            )
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().first()
+
+            if role_data is None:
+                raise RoleNotFoundError(role_id)
+
+            await self.db.delete(role_data)
+            await self.db.commit()
+            return True
+        except RoleNotFoundError:
+            raise
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise RoleDeleteError(role_id) from e
+
+    @track_database_operation(operation_type='insert', table='user_roles')
+    async def assign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """Assign a role to a user by ids."""
+        if user_id is None:
             raise ValueError(
-                "Cannot assign role to the user, no role data was provided.")
+                "Cannot assign role to the user, no user id was provided.")
+
+        if role_id is None:
+            raise ValueError(
+                "Cannot assign role to the user, no role id was provided.")
 
         try:
             create_user_role: UserRolesDataModel = UserRolesDataModel(
-                user_id=user.id,
-                role_id=role.id
+                user_id=user_id,
+                role_id=role_id
             )
 
             self.db.add(create_user_role)
@@ -78,7 +191,38 @@ class RoleRepository(RoleRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise AssignUserRoleError(
-                f"Error assigning role '{role.name}' to user {user.id}: {str(e)}"
+                f"Error assigning role '{role_id}' to user {user_id}: {str(e)}"
+            ) from e
+
+    @track_database_operation(operation_type='delete', table='user_roles')
+    async def unassign_role(self, user_id: UUID, role_id: UUID) -> bool:
+        """Unassign a role from a user by ids."""
+        if user_id is None:
+            raise ValueError(
+                "Cannot unassign role from the user, no user id was provided.")
+
+        if role_id is None:
+            raise ValueError(
+                "Cannot unassign role from the user, no role id was provided.")
+
+        try:
+            user_role_stmt = select(UserRolesDataModel).where(
+                UserRolesDataModel.user_id == user_id,
+                UserRolesDataModel.role_id == role_id,
+            )
+            result = await self.db.execute(user_role_stmt)
+            user_role = result.scalars().first()
+
+            if user_role is None:
+                return False
+
+            await self.db.delete(user_role)
+            await self.db.commit()
+            return True
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise UnassignUserRoleError(
+                f"Error unassigning role '{role_id}' from user {user_id}: {str(e)}"
             ) from e
 
     @track_database_operation(operation_type='select', table='roles')
@@ -88,8 +232,13 @@ class RoleRepository(RoleRepositoryInterface):
                 "Cannot get user roles, no user data was provided")
 
         try:
-            get_role_stmt = select(RolesDataModel).join(
-                UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id).where(UserRolesDataModel.user_id == user.id)
+            get_role_stmt = select(
+                RolesDataModel
+            ).join(
+                UserRolesDataModel, UserRolesDataModel.role_id == RolesDataModel.id
+            ).where(
+                UserRolesDataModel.user_id == user.id
+            )
             result = await self.db.execute(get_role_stmt)
             role_data = result.scalars().all()
             return [self._to_domain(role) for role in role_data]
@@ -100,7 +249,7 @@ class RoleRepository(RoleRepositoryInterface):
     async def check_user_permission(
             self,
             user: UserModel,
-            service_name: str,
+            service_id: UUID,
             resource: str,
             action: str
     ) -> bool:
@@ -109,7 +258,7 @@ class RoleRepository(RoleRepositoryInterface):
 
         Args:
             user: User to check
-            service_name: Microservice name (e.g., 'identity-service')
+            service_id: Microservice id (e.g., identity-service's id)
             resource: Resource type
             action: Action type
 
@@ -136,9 +285,12 @@ class RoleRepository(RoleRepositoryInterface):
                 ).join(
                     PermissionsDataModel,
                     PermissionsDataModel.id == RolePermissionsDataModel.permission_id
+                ).join(
+                    ServiceDataModel,
+                    ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserRolesDataModel.user_id == user.id,
-                    PermissionsDataModel.service_name == service_name,
+                    ServiceDataModel.id == service_id,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -153,9 +305,12 @@ class RoleRepository(RoleRepositoryInterface):
                 check_user_permission_stmt = select(PermissionsDataModel).join(
                     UserPermissionsDataModel,
                     UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+                ).join(
+                    ServiceDataModel,
+                    ServiceDataModel.id == PermissionsDataModel.service_id
                 ).where(
                     UserPermissionsDataModel.user_id == user.id,
-                    PermissionsDataModel.service_name == service_name,
+                    ServiceDataModel.id == service_id,
                     PermissionsDataModel.resource == resource,
                     PermissionsDataModel.action == action
                 )
@@ -177,7 +332,7 @@ class RoleRepository(RoleRepositoryInterface):
     async def get_user_permissions(
         self,
         user: UserModel,
-        service_name: str | None = None
+        service_id: UUID | None = None
     ) -> List[dict]:
         """
            Get all permissions for a user (both role-based and direct)
@@ -198,28 +353,32 @@ class RoleRepository(RoleRepositoryInterface):
         try:
 
             role_permissions_stmt = select(
-                PermissionsDataModel
+                PermissionsDataModel,
+                ServiceDataModel.name
             ).join(
                 RolePermissionsDataModel,
                 RolePermissionsDataModel.permission_id == PermissionsDataModel.id
             ).join(
                 UserRolesDataModel,
                 UserRolesDataModel.role_id == RolePermissionsDataModel.role_id
+            ).join(
+                ServiceDataModel,
+                ServiceDataModel.id == PermissionsDataModel.service_id
             ).where(
                 UserRolesDataModel.user_id == user.id,
             )
 
-            if service_name:
+            if service_id:
                 role_permissions_stmt = role_permissions_stmt.where(
-                    PermissionsDataModel.service_name == service_name
+                    ServiceDataModel.id == service_id
                 )
 
             role_permissions_stmt = role_permissions_stmt.distinct()
 
             result = await self.db.execute(role_permissions_stmt)
-            for perm in result.scalars().all():
+            for perm, perm_service_name in result.all():
                 permissions.append({
-                    'service_name': perm.service_name,
+                    'service_name': perm_service_name,
                     'resource': perm.resource,
                     'action': perm.action,
                     'name': perm.name,
@@ -228,23 +387,27 @@ class RoleRepository(RoleRepositoryInterface):
 
             # Get direct user permissions
             user_permissions_stmt = select(
-                PermissionsDataModel
+                PermissionsDataModel,
+                ServiceDataModel.name
             ).join(
                 UserPermissionsDataModel,
                 UserPermissionsDataModel.permission_id == PermissionsDataModel.id
+            ).join(
+                ServiceDataModel,
+                ServiceDataModel.id == PermissionsDataModel.service_id
             ).where(
                 UserPermissionsDataModel.user_id == user.id
             )
 
-            if service_name:
+            if service_id:
                 user_permissions_stmt = user_permissions_stmt.where(
-                    PermissionsDataModel.service_name == service_name
+                    ServiceDataModel.id == service_id
                 )
 
             result = await self.db.execute(user_permissions_stmt)
-            for perm in result.scalars().all():
+            for perm, perm_service_name in result.all():
                 permissions.append({
-                    'service_name': perm.service_name,
+                    'service_name': perm_service_name,
                     'resource': perm.resource,
                     'action': perm.action,
                     'name': perm.name,

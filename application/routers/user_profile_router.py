@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from application.schemas.user_profile_schema import UserProfileResponse, UpdateProfileRequest
 from application.routers.dependency_utils import (
-    UserSvcDep, CurrentUserDep, get_authenticated_user, require_role, require_permission)
+    AuthzSvcDep,
+    CurrentUserDep,
+    UserSvcDep,
+    get_authenticated_user,
+    require_permission,
+    require_role,
+)
 from uuid import UUID
 
 router = APIRouter(
@@ -79,11 +85,13 @@ async def get_user_profile(user_id: UUID, user_svc: UserSvcDep):
         )
 
 
-@router.put("", response_model=UserProfileResponse)
+@router.put("/{user_id}", response_model=UserProfileResponse)
 async def update_current_user(
+    user_id: UUID,
     update_user_request: UpdateProfileRequest,
     current_user: CurrentUserDep,
-    user_svc: UserSvcDep
+    user_svc: UserSvcDep,
+    authz_svc: AuthzSvcDep,
 ):
     try:
         if update_user_request is None or current_user is None or current_user.user is None or current_user.user.id is None:
@@ -91,7 +99,14 @@ async def update_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unable to update user profile data")
 
-        user_profile = await user_svc.get_user_profile(current_user.user.id)
+        is_admin = authz_svc.check_role(current_user, "admin")
+        if not is_admin and current_user.user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own profile",
+            )
+
+        user_profile = await user_svc.get_user_profile(user_id)
 
         if user_profile is None:
             raise HTTPException(
