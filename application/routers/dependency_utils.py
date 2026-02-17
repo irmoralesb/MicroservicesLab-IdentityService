@@ -16,6 +16,7 @@ from application.services.authorization_service import AuthorizationService
 from application.services.service_service import ServiceService
 from application.services.role_service import RoleService
 from application.services.permission_service import PermissionService
+from application.services.user_service_management_service import UserServiceManagementService
 from domain.entities.user_model import UserWithRolesModel
 from domain.exceptions.auth_errors import MissingPermissionError, MissingRoleError
 
@@ -79,6 +80,14 @@ def get_permission_service(
 ) -> PermissionService:
     """Provide a `PermissionService`."""
     return PermissionService(permission_repo, service_svc)
+
+
+def get_user_service_management_service(
+    service_svc: Annotated[ServiceService, Depends(get_service_service)],
+    role_svc: Annotated[RoleService, Depends(get_role_service)],
+) -> UserServiceManagementService:
+    """Provide a `UserServiceManagementService` for orchestrating user-service operations."""
+    return UserServiceManagementService(service_svc, role_svc)
 
 
 # Service dependencies
@@ -182,3 +191,4 @@ AuthzSvcDep = Annotated[AuthorizationService,
 RoleSvcDep = Annotated[RoleService, Depends(get_role_service)]
 ServiceSvcDep = Annotated[ServiceService, Depends(get_service_service)]
 PermissionSvcDep = Annotated[PermissionService, Depends(get_permission_service)]
+UserServiceMgmtSvcDep = Annotated[UserServiceManagementService, Depends(get_user_service_management_service)]

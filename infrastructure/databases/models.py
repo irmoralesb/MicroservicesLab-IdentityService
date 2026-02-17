@@ -154,6 +154,30 @@ class UserRolesDataModel(Base):
         DateTime, server_default=func.now(), nullable=False)
 
 
+class UserServicesDataModel(Base):
+    __tablename__ = "user_services"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'service_id', name='uix_user_service'),
+        Index('ix_user_service_user_id', 'user_id'),
+        Index('ix_user_service_service_id', 'service_id')
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        default=uuid.uuid4,
+        primary_key=True, index=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False)
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        ForeignKey("services.id", ondelete="CASCADE"),
+        nullable=False)
+    assigned_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False)
+
+
 class RolePermissionsDataModel(Base):
     __tablename__ = "role_permissions"
     __table_args__ = (

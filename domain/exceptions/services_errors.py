@@ -30,3 +30,19 @@ class ServiceDataAccessError(Exception):
 
     def __init__(self) -> None:
         super().__init__("There is an error accessing the database.")
+
+
+class AssignServiceToUserError(Exception):
+    """Raised when assigning a service to a user fails."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+class UnassignServiceFromUserError(Exception):
+    """Raised when unassigning a service from a user fails."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
