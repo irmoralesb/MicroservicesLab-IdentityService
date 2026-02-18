@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List
 import uuid
+from core.datetime_utils import parse_mssql_datetime as _parse_mssql_datetime
 
 
 class ServiceRepository(ServiceRepositoryInterface):
@@ -118,7 +119,7 @@ class ServiceRepository(ServiceRepositoryInterface):
             id=db_user_service.id,
             user_id=db_user_service.user_id,
             service_id=db_user_service.service_id,
-            assigned_at=db_user_service.assigned_at
+            assigned_at=_parse_mssql_datetime(db_user_service.assigned_at)
         )
 
     async def assign_service_to_user(self, user_id: uuid.UUID, service_id: uuid.UUID) -> UserServiceModel:

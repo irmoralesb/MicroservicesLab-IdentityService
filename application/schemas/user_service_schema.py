@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from core.datetime_utils import parse_mssql_datetime as _parse_mssql_datetime
 from domain.entities.user_service_model import UserServiceModel
 
 
@@ -19,6 +20,11 @@ class UserServiceResponse(BaseModel):
     user_id: UUID
     service_id: UUID
     assigned_at: datetime | None = None
+
+    @field_validator("assigned_at", mode="before")
+    @classmethod
+    def parse_assigned_at(cls, v: object) -> datetime | None:
+        return _parse_mssql_datetime(v)
 
     @classmethod
     def from_model(cls, user_service: UserServiceModel) -> "UserServiceResponse":

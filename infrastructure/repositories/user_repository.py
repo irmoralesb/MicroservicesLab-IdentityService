@@ -13,23 +13,8 @@ from domain.interfaces.user_repository import UserRepositoryInterface
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 from datetime import datetime
-import re
+from core.datetime_utils import parse_mssql_datetime as _parse_mssql_datetime
 from infrastructure.observability.metrics.decorators import track_database_operation
-
-_DATETIMEOFFSET_RE = re.compile(
-    r"^(?P<base>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
-    r"(?:\.(?P<frac>\d{1,7}))? (?P<tz>[+-]\d{2}:\d{2})$"
-)
-
-def _parse_mssql_datetime(value: datetime | str | None) -> datetime | None:
-    if value is None or isinstance(value, datetime):
-        return value
-    match = _DATETIMEOFFSET_RE.match(value)
-    if not match:
-        return datetime.fromisoformat(value)
-    frac = (match.group("frac") or "0").ljust(6, "0")[:6]
-    normalized = f"{match.group('base')}.{frac}{match.group('tz')}"
-    return datetime.fromisoformat(normalized)
 
 
 class UserRepository(UserRepositoryInterface):
@@ -49,7 +34,7 @@ class UserRepository(UserRepositoryInterface):
             is_verified=db_user.is_verified,
             hashed_password=db_user.hashed_password,
             failed_login_attempts=db_user.failed_login_attempts,
-            locked_until=db_user.locked_until
+            locked_until=_parse_mssql_datetime(db_user.locked_until)
         )
 
     def _to_datamodel(self, user: UserModel) -> UserDataModel:

@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from core.datetime_utils import parse_mssql_datetime as _parse_mssql_datetime
 from domain.entities.user_model import UserModel
 
 
@@ -18,6 +19,11 @@ class UserProfileResponse(BaseModel):
     is_verified: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def parse_datetimes(cls, v: object) -> datetime | None:
+        return _parse_mssql_datetime(v)
 
     @classmethod
     def from_user_model(cls, user: UserModel) -> UserProfileResponse:

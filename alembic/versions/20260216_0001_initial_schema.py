@@ -15,6 +15,7 @@ from alembic import op
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 import sqlalchemy as sa
+from sqlalchemy.dialects import mssql
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 
 
@@ -71,13 +72,13 @@ def upgrade() -> None:
         ),
         sa.Column(
             "created_at",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             nullable=False,
             server_default=sa.text("SYSDATETIMEOFFSET()"),
         ),
         sa.Column(
             "updated_at",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             nullable=False,
             server_default=sa.text("SYSDATETIMEOFFSET()"),
         ),
@@ -89,7 +90,7 @@ def upgrade() -> None:
     op.create_table(
         "roles",
         sa.Column("id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
-        sa.Column("service_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
+        sa.Column("service_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False, comment="Service identifier this role belongs to"),
         sa.Column(
             "name",
             sa.String(length=50),
@@ -105,7 +106,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "created_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
@@ -124,7 +125,7 @@ def upgrade() -> None:
     op.create_table(
         "permissions",
         sa.Column("id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
-        sa.Column("service_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
+        sa.Column("service_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False, comment="Service identifier this permission belongs to"),
         sa.Column(
             "name",
             sa.String(length=50),
@@ -146,7 +147,7 @@ def upgrade() -> None:
         sa.Column("description", sa.String(length=200), nullable=True),
         sa.Column(
             "created_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
@@ -185,19 +186,19 @@ def upgrade() -> None:
         ),
         sa.Column(
             "locked_until",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             nullable=True,
             comment="Timestamp until which the account is locked",
         ),
         sa.Column(
             "created_at",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("SYSDATETIMEOFFSET()"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("SYSDATETIMEOFFSET()"),
             nullable=False,
         ),
@@ -216,15 +217,15 @@ def upgrade() -> None:
         sa.Column("id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column("user_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column("token_hashed", sa.String(length=255), nullable=False),
-        sa.Column("expires_at", sa.DateTime(), nullable=False),
+        sa.Column("expires_at", mssql.DATETIME2(precision=6), nullable=False),
         sa.Column("revoked", sa.Boolean(), nullable=False),
         sa.Column(
             "created_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
-        sa.Column("revoked_at", sa.DateTime(), nullable=True),
+        sa.Column("revoked_at", mssql.DATETIME2(precision=6), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -248,7 +249,7 @@ def upgrade() -> None:
         sa.Column("permission_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column(
             "assigned_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
@@ -277,13 +278,13 @@ def upgrade() -> None:
         sa.Column("permission_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column(
             "assigned_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.Column(
             "expires_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             nullable=True,
             comment="Optional expiration for temporary permissions",
         ),
@@ -312,7 +313,7 @@ def upgrade() -> None:
         sa.Column("role_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column(
             "assigned_at",
-            sa.DateTime(),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
@@ -331,7 +332,7 @@ def upgrade() -> None:
         sa.Column("service_id", UNIQUEIDENTIFIER(as_uuid=True), nullable=False),
         sa.Column(
             "assigned_at",
-            sa.DateTime(timezone=True),
+            mssql.DATETIME2(precision=6),
             server_default=sa.text("SYSDATETIMEOFFSET()"),
             nullable=False,
         ),
