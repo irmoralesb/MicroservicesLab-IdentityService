@@ -11,7 +11,7 @@ from domain.exceptions.roles_errors import (
     ServiceNotAssignedToUserError,
 )
 from domain.interfaces.role_repository import RoleRepositoryInterface
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from infrastructure.databases.models import (
@@ -268,23 +268,23 @@ class RoleRepository(RoleRepositoryInterface):
             raise ValueError("Cannot unassign roles from user, no service id was provided.")
 
         try:
-            # Find all user_roles entries where the role belongs to the specified service
-            user_roles_stmt = select(UserRolesDataModel).join(
-                RolesDataModel, 
-                UserRolesDataModel.role_id == RolesDataModel.id
-            ).where(
-                UserRolesDataModel.user_id == user_id,
+            # Subquery: get all role IDs belonging to the specified service
+            roles_in_service_subquery = select(RolesDataModel.id).where(
                 RolesDataModel.service_id == service_id
+            ).scalar_subquery()
+
+            delete_stmt = (
+                delete(UserRolesDataModel)
+                .where(
+                    UserRolesDataModel.user_id == user_id,
+                    UserRolesDataModel.role_id.in_(roles_in_service_subquery)
+                )
             )
-            result = await self.db.execute(user_roles_stmt)
-            user_roles = result.scalars().all()
 
-            count = len(user_roles)
-            for user_role in user_roles:
-                await self.db.delete(user_role)
-
+            result = await self.db.execute(delete_stmt)
             await self.db.commit()
-            return count
+
+            return result.rowcount
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise UnassignUserRoleError(

@@ -8,10 +8,10 @@ from application.routers.dependency_utils import (
     require_permission,
     require_role,
 )
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 from application.schemas.user_service_schema import (
     UserServiceAssignRequest,
     UserServiceResponse,
-    UserServicesResponse,
 )
 from application.schemas.service_schema import ServiceResponse
 from domain.exceptions.services_errors import (
@@ -20,8 +20,9 @@ from domain.exceptions.services_errors import (
     ServiceNotFoundError,
     ServiceDataAccessError,
 )
-from domain.exceptions.roles_errors import ServiceNotAssignedToUserError
 
+
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/users/services",
@@ -59,10 +60,11 @@ async def assign_service_to_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Unexpected error assigning service to user")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error assigning service to user: {str(exc)}",
+            detail="An unexpected error occurred while assigning the service to the user.",
         )
 
 
@@ -92,10 +94,11 @@ async def unassign_service_from_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Unexpected error unassigning the service from user")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error unassigning service from user: {str(exc)}",
+            detail="An unexpected error occurred while unassigning the service from the user.",
         )
 
 
@@ -121,8 +124,9 @@ async def get_user_services(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Unexpected error getting service list")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user services: {str(exc)}",
+            detail="An unexpected error occurred while getting the service list.",
         )

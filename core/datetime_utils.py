@@ -27,12 +27,21 @@ def parse_mssql_datetime(value: datetime | str | None) -> datetime | None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is None:
+            # Treat naive datetimes as UTC
             return value.replace(tzinfo=timezone.utc)
-        return value
+        # Normalise any offset-aware datetime to UTC
+        return value.astimezone(timezone.utc)
     if isinstance(value, str):
+        # Truncate extra fractional digits beyond microseconds
         fixed = _FRACTION_RE.sub(r"\1", value)
+        # Normalise optional space before the UTC offset, e.g. '...228536 +00:00' → '...228536+00:00'
+        fixed = re.sub(r"(\d)\s+([+-]\d{2}:\d{2})$", r"\1\2", fixed)
         dt = datetime.fromisoformat(fixed)
         if dt.tzinfo is None:
+            # Treat naive datetimes as UTC
             dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            # Normalise any offset-aware datetime to UTC
+            dt = dt.astimezone(timezone.utc)
         return dt
     raise ValueError(f"Cannot parse datetime from {type(value)}: {value!r}")

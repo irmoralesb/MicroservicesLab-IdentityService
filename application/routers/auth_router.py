@@ -13,7 +13,9 @@ from domain.exceptions.auth_errors import (
     PasswordChangeError
 )
 from core.password_validator import PasswordValidationError
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix='/api/v1/auth',
@@ -44,10 +46,11 @@ async def create_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
         )
-    except Exception as e:
+    except Exception:
+        logger.exception(f"Unexpected error creating user")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error while creating the user: {str(e)}"
+            detail="Error while creating the user."
         )
 
 
@@ -119,10 +122,11 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-    except Exception as e:
+    except Exception:
+        logger.exception(f"Unexpected error changing password for user_id={current_user.user.id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error changing password: {str(e)}"
+            detail="Error changing password."
         )
 
 
@@ -147,9 +151,11 @@ async def unlock_account(
             )
         
         return {"message": "Account unlocked successfully"}
-        
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"Unexpected error unlocking account for user_id={request.user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error unlocking account: {str(e)}"
+            detail="Error unlocking account."
         )

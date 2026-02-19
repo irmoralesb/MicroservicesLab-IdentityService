@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from application.schemas.user_profile_schema import UserProfileResponse, UpdateProfileRequest
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 from application.routers.dependency_utils import (
     AuthzSvcDep,
     CurrentUserDep,
@@ -9,6 +10,8 @@ from application.routers.dependency_utils import (
     require_role,
 )
 from uuid import UUID
+
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix='/api/v1/profile',
@@ -27,7 +30,8 @@ async def get_all_users(user_svc: UserSvcDep):
 
         return [UserProfileResponse.from_user_model(user) for user in user_list]
 
-    except ValueError as e:
+    except ValueError:
+        logger.exception("Unexpected error retrieving all users")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error while processing the request."
@@ -53,8 +57,8 @@ async def get_current_user(
 
         return UserProfileResponse.from_user_model(user_profile)
 
-    except ValueError as e:
-        # TODO: Log the error: e
+    except ValueError:
+        logger.exception("Unexpected error retrieving current user profile")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Error validating token data.")
 
@@ -78,7 +82,8 @@ async def get_user_profile(user_id: UUID, user_svc: UserSvcDep):
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
+        logger.exception(f"Unexpected error retrieving user profile for user_id={user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error while processing the request"
@@ -124,7 +129,8 @@ async def update_current_user(
 
         updated_user_profile = await user_svc.update_user_profile(user_profile)
         return UserProfileResponse.from_user_model(updated_user_profile)
-    except ValueError as e:
+    except ValueError:
+        logger.exception(f"Unexpected error updating user profile for user_id={user_id}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Error updating the user.")
 
@@ -148,7 +154,10 @@ async def activate_user(
             )
 
         await user_svc.activate_user(user_id)
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"Unexpected error activating user user_id={user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error activating the user"
@@ -165,19 +174,22 @@ async def deactivate_user(
 ):
 
     try:
-        user_to_activate = await user_svc.get_user_profile(user_id)
+        user_to_deactivate = await user_svc.get_user_profile(user_id)
 
-        if user_to_activate is None:
+        if user_to_deactivate is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
 
         await user_svc.deactivate_user(user_id)
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"Unexpected error deactivating user user_id={user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error activating the user"
+            detail="Error deactivating the user"
         )
 
 
@@ -191,17 +203,20 @@ async def delete_user(
 ):
 
     try:
-        user_to_activate = await user_svc.get_user_profile(user_id)
+        user_to_delete = await user_svc.get_user_profile(user_id)
 
-        if user_to_activate is None:
+        if user_to_delete is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
 
         await user_svc.delete_user(user_id)
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"Unexpected error deleting user user_id={user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error activating the user"
+            detail="Error deleting the user"
         )

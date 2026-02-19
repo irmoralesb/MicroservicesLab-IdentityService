@@ -31,9 +31,9 @@ class UserDataModel(Base):
         DATETIME2(precision=6), nullable=True,
         comment="Timestamp until which the account is locked")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
 
@@ -65,9 +65,9 @@ class ServiceDataModel(Base):
         Integer, nullable=True,
         comment="Network port for the service")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class RolesDataModel(Base):
@@ -96,7 +96,7 @@ class RolesDataModel(Base):
         Boolean, nullable=False, default=True,
         comment="Whether this role is currently active and can be assigned")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class PermissionsDataModel(Base):
@@ -126,7 +126,7 @@ class PermissionsDataModel(Base):
         comment="Action type (e.g., 'create', 'read', 'update', 'delete')")
     description: Mapped[str] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class UserRolesDataModel(Base):
@@ -150,7 +150,7 @@ class UserRolesDataModel(Base):
         ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class UserServicesDataModel(Base):
@@ -174,7 +174,7 @@ class UserServicesDataModel(Base):
         ForeignKey("services.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class RolePermissionsDataModel(Base):
@@ -199,7 +199,7 @@ class RolePermissionsDataModel(Base):
         ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class UserPermissionsDataModel(Base):
@@ -224,7 +224,7 @@ class UserPermissionsDataModel(Base):
         ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     expires_at: Mapped[datetime.datetime] = mapped_column(
         DATETIME2(precision=6), nullable=True,
         comment="Optional expiration for temporary permissions")
@@ -251,6 +251,6 @@ class RefreshTokensDataModel(Base):
     revoked: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DATETIME2(precision=6), server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     revoked_at: Mapped[datetime.datetime] = mapped_column(
         DATETIME2(precision=6), nullable=True)

@@ -24,7 +24,9 @@ from domain.exceptions.permission_errors import (
     PermissionUnassignError,
 )
 from domain.exceptions.services_errors import ServiceNotFoundError
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/permissions",
@@ -55,10 +57,11 @@ async def list_permissions(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching permissions for service_id={service_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching permissions: {str(exc)}",
+            detail="Error fetching permissions.",
         )
 
 
@@ -89,10 +92,11 @@ async def create_permission(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error creating permission")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating permission: {str(exc)}",
+            detail="Error creating permission.",
         )
 
 
@@ -128,10 +132,11 @@ async def update_permission(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error updating permission permission_id={permission_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating permission: {str(exc)}",
+            detail="Error updating permission.",
         )
 
 
@@ -166,10 +171,11 @@ async def delete_permission(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error deleting permission permission_id={permission_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting permission: {str(exc)}",
+            detail="Error deleting permission.",
         )
 
 
@@ -209,10 +215,11 @@ async def get_permissions_for_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching permissions for role_id={role_id} service_id={service_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching permissions for role: {str(exc)}",
+            detail="Error fetching permissions for role.",
         )
 
 
@@ -243,10 +250,11 @@ async def assign_permission_to_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error assigning permission_id={permission_id} to role_id={role_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error assigning permission to role: {str(exc)}",
+            detail="Error assigning permission to role.",
         )
 
 
@@ -277,8 +285,9 @@ async def unassign_permission_from_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error unassigning permission_id={permission_id} from role_id={role_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error unassigning permission from role: {str(exc)}",
+            detail="Error unassigning permission from role.",
         )
