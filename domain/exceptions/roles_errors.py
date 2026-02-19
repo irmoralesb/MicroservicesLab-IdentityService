@@ -62,3 +62,15 @@ class UnspecifiedRoleServiceId(Exception):
     def __init__(self, role_name: str) -> None:
         self.role_name = role_name
         super().__init__(f"Unspecified Service id to role {role_name}")
+
+
+class ServiceNotAssignedToUserError(Exception):
+    """Raised when trying to assign a role to a user who doesn't have the service assigned."""
+
+    def __init__(self, user_id: UUID, service_id: UUID) -> None:
+        self.user_id = user_id
+        self.service_id = service_id
+        super().__init__(
+            f"Service '{service_id}' has not been assigned to user '{user_id}'. "
+            f"Please assign the service to the user first."
+        )

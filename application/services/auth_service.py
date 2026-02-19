@@ -53,18 +53,12 @@ class AuthenticateService():
         
         # Check if account is locked
         if user.locked_until:
-            # Ensure locked_until is a datetime object and timezone-aware
-            if isinstance(user.locked_until, str):
-                # Parse string to datetime if needed
-                from dateutil import parser
-                locked_until_aware = parser.parse(user.locked_until)
-            elif isinstance(user.locked_until, datetime):
-                # If it's a datetime, ensure it's timezone-aware
-                locked_until_aware = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
-            else:
-                # Fallback: assume it's already correct
-                locked_until_aware = user.locked_until
-            
+            # locked_until is always a timezone-aware datetime (parsed by the repository layer)
+            locked_until_aware = (
+                user.locked_until.replace(tzinfo=timezone.utc)
+                if user.locked_until.tzinfo is None
+                else user.locked_until
+            )
             if locked_until_aware > now_utc:
                 raise AccountLockedError(
                     locked_until=locked_until_aware.strftime("%Y-%m-%d %H:%M:%S UTC")

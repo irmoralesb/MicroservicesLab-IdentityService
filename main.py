@@ -15,7 +15,8 @@ from domain.exceptions.permission_errors import (
     PermissionNotFoundError,
     PermissionStillAssignedError
 )
-from application.routers import auth_router, user_profile_router, role_router, service_router, permission_router
+from domain.exceptions.roles_errors import ServiceNotAssignedToUserError
+from application.routers import auth_router, user_profile_router, role_router, service_router, permission_router, user_service_router
 from infrastructure.observability.logging.loki_handler import (
     setup_loki_handler,
     get_structured_logger,
@@ -98,6 +99,18 @@ async def permission_still_assigned_exception_handler(request, exc: PermissionSt
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
         content={"detail": str(exc)}
+    )
+
+
+@app.exception_handler(ServiceNotAssignedToUserError)
+async def service_not_assigned_exception_handler(request, exc: ServiceNotAssignedToUserError):
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": str(exc),
+            "user_id": str(exc.user_id),
+            "service_id": str(exc.service_id)
+        }
     )
 
 
@@ -224,6 +237,7 @@ else:
 app.include_router(auth_router.router)
 app.include_router(user_profile_router.router)
 app.include_router(service_router.router)
+app.include_router(user_service_router.router)
 app.include_router(role_router.router)
 app.include_router(permission_router.router)
 app.include_router(permission_router.role_permission_router)

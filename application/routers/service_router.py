@@ -10,7 +10,9 @@ from application.routers.dependency_utils import (
 )
 from application.schemas.service_schema import ServiceCreateRequest, ServiceResponse
 from domain.exceptions.services_errors import ServiceCreationError, ServiceNotFoundError
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/services",
@@ -32,10 +34,11 @@ async def get_services(service_svc: ServiceSvcDep) -> list[ServiceResponse]:
     try:
         services = await service_svc.get_all_services()
         return [ServiceResponse.from_model(service) for service in services]
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching services")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching services.",
+            detail="Error fetching services.",
         )
 
 
@@ -62,10 +65,13 @@ async def get_service(service_id: UUID, service_svc: ServiceSvcDep) -> ServiceRe
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except Exception as exc:
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"Unexpected error fetching service service_id={service_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching service: {str(exc)}",
+            detail="Error fetching service.",
         )
 
 
@@ -90,8 +96,9 @@ async def create_service(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error creating service")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating service: {str(exc)}",
+            detail="Error creating service.",
         )

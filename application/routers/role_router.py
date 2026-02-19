@@ -27,7 +27,9 @@ from domain.exceptions.roles_errors import (
     RoleUpdateError,
 )
 from domain.exceptions.services_errors import ServiceNotFoundError
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 
+logger = get_structured_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/roles",
@@ -58,10 +60,11 @@ async def get_role_by_name(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching role service_id={service_id} role_name={role_name}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching role: {str(exc)}",
+            detail="Error fetching role.",
         )
 
 
@@ -88,10 +91,11 @@ async def get_role_list(service_id: UUID, role_svc: RoleSvcDep) -> list[RoleResp
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching role list for service_id={service_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching role list: {str(exc)}",
+            detail="Error fetching role list.",
         )
 
 
@@ -123,10 +127,11 @@ async def create_role(request: RoleCreateRequest, role_svc: RoleSvcDep) -> RoleR
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error creating role")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating role: {str(exc)}",
+            detail="Error creating role.",
         )
 
 
@@ -157,10 +162,11 @@ async def update_role(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error updating role role_id={role_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating role: {str(exc)}",
+            detail="Error updating role.",
         )
 
 
@@ -186,10 +192,11 @@ async def delete_role(role_id: UUID, role_svc: RoleSvcDep) -> dict:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error deleting role role_id={role_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting role: {str(exc)}",
+            detail="Error deleting role.",
         )
 
 
@@ -210,10 +217,11 @@ async def assign_role(request: RoleAssignRequest, role_svc: RoleSvcDep) -> dict:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error assigning role_id={request.role_id} to user_id={request.user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error assigning role: {str(exc)}",
+            detail="Error assigning role.",
         )
 
 
@@ -234,10 +242,11 @@ async def unassign_role(request: RoleAssignRequest, role_svc: RoleSvcDep) -> dic
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error unassigning role_id={request.role_id} from user_id={request.user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error unassigning role: {str(exc)}",
+            detail="Error unassigning role.",
         )
 
 
@@ -266,10 +275,11 @@ async def get_user_roles(
         return [RoleResponse.from_model(role) for role in roles]
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching roles for user_id={user_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user roles: {str(exc)}",
+            detail="Error fetching user roles.",
         )
 
 
@@ -306,10 +316,11 @@ async def check_user_permission(
         return PermissionCheckResponse(has_permission=has_permission)
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error checking permission for user_id={user_id} service={service_name} resource={resource} action={action}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error checking permission: {str(exc)}",
+            detail="Error checking permission.",
         )
 
 
@@ -339,8 +350,9 @@ async def get_user_permissions(
         return [PermissionEntry(**permission) for permission in permissions]
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
+        logger.exception(f"Unexpected error fetching permissions for user_id={user_id} service={service_name}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching permissions: {str(exc)}",
+            detail="Error fetching permissions.",
         )

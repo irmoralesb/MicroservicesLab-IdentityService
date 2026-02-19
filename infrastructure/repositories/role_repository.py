@@ -8,9 +8,10 @@ from domain.exceptions.roles_errors import (
     RoleListError,
     RoleNotFoundError,
     RoleUpdateError,
+    ServiceNotAssignedToUserError,
 )
 from domain.interfaces.role_repository import RoleRepositoryInterface
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from infrastructure.databases.models import (
@@ -19,7 +20,8 @@ from infrastructure.databases.models import (
     UserRolesDataModel,
     RolePermissionsDataModel,
     PermissionsDataModel,
-    UserPermissionsDataModel)
+    UserPermissionsDataModel,
+    UserServicesDataModel)
 from typing import List
 from infrastructure.observability.metrics.decorators import (
     track_database_operation,
@@ -169,7 +171,10 @@ class RoleRepository(RoleRepositoryInterface):
 
     @track_database_operation(operation_type='insert', table='user_roles')
     async def assign_role(self, user_id: UUID, role_id: UUID) -> bool:
-        """Assign a role to a user by ids."""
+        """Assign a role to a user by ids.
+        
+        A user can only be assigned a role if the user has the service assigned.
+        """
         if user_id is None:
             raise ValueError(
                 "Cannot assign role to the user, no user id was provided.")
@@ -179,6 +184,28 @@ class RoleRepository(RoleRepositoryInterface):
                 "Cannot assign role to the user, no role id was provided.")
 
         try:
+            # Get the role to determine which service it belongs to
+            get_role_stmt = select(RolesDataModel).where(
+                RolesDataModel.id == role_id
+            )
+            result = await self.db.execute(get_role_stmt)
+            role_data = result.scalars().first()
+
+            if role_data is None:
+                raise RoleNotFoundError(role_id)
+
+            # Check if the user has the service assigned
+            check_service_stmt = select(UserServicesDataModel).where(
+                (UserServicesDataModel.user_id == user_id) &
+                (UserServicesDataModel.service_id == role_data.service_id)
+            )
+            service_result = await self.db.execute(check_service_stmt)
+            user_has_service = service_result.scalars().first() is not None
+
+            if not user_has_service:
+                raise ServiceNotAssignedToUserError(user_id, role_data.service_id)
+
+            # Assign the role to the user
             create_user_role: UserRolesDataModel = UserRolesDataModel(
                 user_id=user_id,
                 role_id=role_id
@@ -188,6 +215,10 @@ class RoleRepository(RoleRepositoryInterface):
             await self.db.commit()
             await self.db.refresh(create_user_role)
             return True
+        except ServiceNotAssignedToUserError:
+            raise
+        except RoleNotFoundError:
+            raise
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise AssignUserRoleError(
@@ -223,6 +254,41 @@ class RoleRepository(RoleRepositoryInterface):
             await self.db.rollback()
             raise UnassignUserRoleError(
                 f"Error unassigning role '{role_id}' from user {user_id}: {str(e)}"
+            ) from e
+
+    @track_database_operation(operation_type='delete', table='user_roles')
+    async def unassign_service_roles_from_user(self, user_id: UUID, service_id: UUID) -> int:
+        """Unassign all roles belonging to a service from a user.
+        
+        Returns the number of roles unassigned.
+        """
+        if user_id is None:
+            raise ValueError("Cannot unassign roles from user, no user id was provided.")
+        if service_id is None:
+            raise ValueError("Cannot unassign roles from user, no service id was provided.")
+
+        try:
+            # Subquery: get all role IDs belonging to the specified service
+            roles_in_service_subquery = select(RolesDataModel.id).where(
+                RolesDataModel.service_id == service_id
+            ).scalar_subquery()
+
+            delete_stmt = (
+                delete(UserRolesDataModel)
+                .where(
+                    UserRolesDataModel.user_id == user_id,
+                    UserRolesDataModel.role_id.in_(roles_in_service_subquery)
+                )
+            )
+
+            result = await self.db.execute(delete_stmt)
+            await self.db.commit()
+
+            return result.rowcount
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            raise UnassignUserRoleError(
+                f"Error unassigning service roles for service '{service_id}' from user {user_id}: {str(e)}"
             ) from e
 
     @track_database_operation(operation_type='select', table='roles')

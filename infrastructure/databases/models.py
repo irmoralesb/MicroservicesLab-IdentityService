@@ -1,10 +1,9 @@
 import datetime
 import uuid
-from datetime import timezone
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, func, UniqueConstraint, Index
+from sqlalchemy import String, Boolean, ForeignKey, Integer, func, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER, DATETIME2
 
 from infrastructure.databases.database import Base
 
@@ -29,12 +28,12 @@ class UserDataModel(Base):
         default=0, nullable=False,
         comment="Number of consecutive failed login attempts")
     locked_until: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DATETIME2(precision=6), nullable=True,
         comment="Timestamp until which the account is locked")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
 
@@ -66,9 +65,9 @@ class ServiceDataModel(Base):
         Integer, nullable=True,
         comment="Network port for the service")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class RolesDataModel(Base):
@@ -97,7 +96,7 @@ class RolesDataModel(Base):
         Boolean, nullable=False, default=True,
         comment="Whether this role is currently active and can be assigned")
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class PermissionsDataModel(Base):
@@ -127,7 +126,7 @@ class PermissionsDataModel(Base):
         comment="Action type (e.g., 'create', 'read', 'update', 'delete')")
     description: Mapped[str] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class UserRolesDataModel(Base):
@@ -151,7 +150,31 @@ class UserRolesDataModel(Base):
         ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
+
+
+class UserServicesDataModel(Base):
+    __tablename__ = "user_services"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'service_id', name='uix_user_service'),
+        Index('ix_user_service_user_id', 'user_id'),
+        Index('ix_user_service_service_id', 'service_id')
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        default=uuid.uuid4,
+        primary_key=True, index=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False)
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        UNIQUEIDENTIFIER(as_uuid=True),
+        ForeignKey("services.id", ondelete="CASCADE"),
+        nullable=False)
+    assigned_at: Mapped[datetime.datetime] = mapped_column(
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class RolePermissionsDataModel(Base):
@@ -176,7 +199,7 @@ class RolePermissionsDataModel(Base):
         ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
 
 
 class UserPermissionsDataModel(Base):
@@ -201,9 +224,9 @@ class UserPermissionsDataModel(Base):
         ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False)
     assigned_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     expires_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, nullable=True,
+        DATETIME2(precision=6), nullable=True,
         comment="Optional expiration for temporary permissions")
 
 
@@ -224,10 +247,10 @@ class RefreshTokensDataModel(Base):
         nullable=False)
     token_hashed: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, nullable=False)
+        DATETIME2(precision=6), nullable=False)
     revoked: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False)
+        DATETIME2(precision=6), server_default=func.sysutcdatetime(), nullable=False)
     revoked_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, nullable=True)
+        DATETIME2(precision=6), nullable=True)

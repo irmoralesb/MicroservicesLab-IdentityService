@@ -1,5 +1,6 @@
 from infrastructure.repositories.service_repository import ServiceRepository
 from domain.entities.service_model import ServiceModel
+from domain.entities.user_service_model import UserServiceModel
 from domain.exceptions.services_errors import ServiceNotFoundError, ServiceNameNotFoundError
 from typing import List
 from uuid import UUID
@@ -35,3 +36,21 @@ class ServiceService:
 
     async def create_service(self, service: ServiceModel) -> ServiceModel:
         return await self.service_repo.create_service(service)
+
+    async def assign_service_to_user(self, user_id: UUID, service_id: UUID) -> UserServiceModel:
+        """Assign a service to a user."""
+        # Verify service exists
+        await self.get_service(service_id)
+        return await self.service_repo.assign_service_to_user(user_id, service_id)
+
+    async def unassign_service_from_user(self, user_id: UUID, service_id: UUID) -> bool:
+        """Unassign a service from a user."""
+        return await self.service_repo.unassign_service_from_user(user_id, service_id)
+
+    async def get_user_services(self, user_id: UUID) -> List[ServiceModel]:
+        """Get all services assigned to a user."""
+        return await self.service_repo.get_user_services(user_id)
+
+    async def has_user_service(self, user_id: UUID, service_id: UUID) -> bool:
+        """Check if a user has a specific service assigned."""
+        return await self.service_repo.has_user_service(user_id, service_id)
