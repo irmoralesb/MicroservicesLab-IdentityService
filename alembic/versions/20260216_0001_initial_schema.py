@@ -107,7 +107,7 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
@@ -148,7 +148,7 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
@@ -193,13 +193,13 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("SYSDATETIMEOFFSET()"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("SYSDATETIMEOFFSET()"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.Column(
@@ -222,7 +222,7 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.Column("revoked_at", mssql.DATETIME2(precision=6), nullable=True),
@@ -250,7 +250,7 @@ def upgrade() -> None:
         sa.Column(
             "assigned_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(["permission_id"], ["permissions.id"], ondelete="CASCADE"),
@@ -279,7 +279,7 @@ def upgrade() -> None:
         sa.Column(
             "assigned_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.Column(
@@ -314,7 +314,7 @@ def upgrade() -> None:
         sa.Column(
             "assigned_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("CURRENT_TIMESTAMP"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE"),
@@ -333,7 +333,7 @@ def upgrade() -> None:
         sa.Column(
             "assigned_at",
             mssql.DATETIME2(precision=6),
-            server_default=sa.text("SYSDATETIMEOFFSET()"),
+            server_default=sa.text("SYSUTCDATETIME()"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE", onupdate="NO ACTION"),

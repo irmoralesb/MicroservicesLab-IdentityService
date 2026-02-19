@@ -56,9 +56,13 @@ async def assign_service_to_user(
             detail=str(exc),
         )
     except AssignServiceToUserError as exc:
+        logger.exception(
+            "Failed to assign service to user",
+            extra={"user_id": str(exc.user_id), "service_id": str(exc.service_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Failed to assign the service to the user.",
         )
     except Exception:
         logger.exception("Unexpected error assigning service to user")
@@ -89,10 +93,16 @@ async def unassign_service_from_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User service assignment not found.",
             )
+    except HTTPException:
+        raise
     except UnassignServiceFromUserError as exc:
+        logger.exception(
+            "Failed to unassign service from user",
+            extra={"user_id": str(exc.user_id), "service_id": str(exc.service_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Failed to unassign the service from the user.",
         )
     except Exception:
         logger.exception("Unexpected error unassigning the service from user")

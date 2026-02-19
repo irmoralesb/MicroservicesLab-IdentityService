@@ -35,14 +35,16 @@ class ServiceDataAccessError(Exception):
 class AssignServiceToUserError(Exception):
     """Raised when assigning a service to a user fails."""
 
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
+    def __init__(self, user_id: UUID | None = None, service_id: UUID | None = None) -> None:
+        self.user_id = user_id
+        self.service_id = service_id
+        super().__init__("Failed to assign the service to the user.")
 
 
 class UnassignServiceFromUserError(Exception):
     """Raised when unassigning a service from a user fails."""
 
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
+    def __init__(self, user_id: UUID | None = None, service_id: UUID | None = None) -> None:
+        self.user_id = user_id
+        self.service_id = service_id
+        super().__init__("Failed to unassign the service from the user.")

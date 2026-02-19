@@ -114,6 +114,7 @@ class ServiceRepository(ServiceRepositoryInterface):
         except SQLAlchemyError as e:
             await self.db.rollback()
             raise ServiceUpdateError(service.name) from e
+
     def _to_user_service_domain(self, db_user_service: UserServicesDataModel) -> UserServiceModel:
         return UserServiceModel(
             id=db_user_service.id,
@@ -125,9 +126,11 @@ class ServiceRepository(ServiceRepositoryInterface):
     async def assign_service_to_user(self, user_id: uuid.UUID, service_id: uuid.UUID) -> UserServiceModel:
         """Assign a service to a user."""
         if user_id is None:
-            raise ValueError("Cannot assign service to user, no user id was provided.")
+            raise ValueError(
+                "Cannot assign service to user, no user id was provided.")
         if service_id is None:
-            raise ValueError("Cannot assign service to user, no service id was provided.")
+            raise ValueError(
+                "Cannot assign service to user, no service id was provided.")
 
         try:
             user_service = UserServicesDataModel(
@@ -140,16 +143,16 @@ class ServiceRepository(ServiceRepositoryInterface):
             return self._to_user_service_domain(user_service)
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise AssignServiceToUserError(
-                f"Error assigning service '{service_id}' to user {user_id}: {str(e)}"
-            ) from e
+            raise AssignServiceToUserError(user_id=user_id, service_id=service_id) from e
 
     async def unassign_service_from_user(self, user_id: uuid.UUID, service_id: uuid.UUID) -> bool:
         """Unassign a service from a user."""
         if user_id is None:
-            raise ValueError("Cannot unassign service from user, no user id was provided.")
+            raise ValueError(
+                "Cannot unassign service from user, no user id was provided.")
         if service_id is None:
-            raise ValueError("Cannot unassign service from user, no service id was provided.")
+            raise ValueError(
+                "Cannot unassign service from user, no service id was provided.")
 
         try:
             user_service_stmt = select(UserServicesDataModel).where(
@@ -167,14 +170,13 @@ class ServiceRepository(ServiceRepositoryInterface):
             return True
         except SQLAlchemyError as e:
             await self.db.rollback()
-            raise UnassignServiceFromUserError(
-                f"Error unassigning service '{service_id}' from user {user_id}: {str(e)}"
-            ) from e
+            raise UnassignServiceFromUserError(user_id=user_id, service_id=service_id) from e
 
     async def get_user_services(self, user_id: uuid.UUID) -> List[ServiceModel]:
         """Get all services assigned to a user."""
         if user_id is None:
-            raise ValueError("Cannot get user services, no user id was provided.")
+            raise ValueError(
+                "Cannot get user services, no user id was provided.")
 
         try:
             services_stmt = select(ServiceDataModel).join(
