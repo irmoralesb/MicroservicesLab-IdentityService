@@ -36,6 +36,12 @@ TODO.md
 *.md
 !README.md
 
+# Deployment scripts (not needed in production image)
+*.ps1
+docker-compose*.yml
+AZURE_DEPLOYMENT_GUIDE.md
+QUICK_REFERENCE.md
+
 # Plan and misc
 .cursor
 plans
