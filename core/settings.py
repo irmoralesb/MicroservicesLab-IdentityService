@@ -6,7 +6,7 @@
 # All configuration is validated on startup, providing "fail-fast" behavior.
 # """
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import timedelta
 from typing import Optional
@@ -160,8 +160,24 @@ class Settings(BaseSettings):
         description="Id of this microservice for RBAC scoping and tracing"
     )
     
+    @model_validator(mode='before')
+    @classmethod
+    def handle_azure_connection_strings(cls, data):
+        """
+        Handle Azure App Service connection string naming convention.
+        Azure automatically prepends 'SQLCONNSTR_' to connection string settings,
+        so we need to check for both: SQLCONNSTR_* and the standard names.
+        """
+        if isinstance(data, dict):
+            # Check for Azure-prefixed versions and use them if standard names aren't set
+            if 'SQLCONNSTR_IDENTITY_DATABASE_URL' in data and 'identity_database_url' not in data:
+                data['identity_database_url'] = data.get('SQLCONNSTR_IDENTITY_DATABASE_URL')
+            if 'SQLCONNSTR_IDENTITY_DATABASE_MIGRATION_URL' in data and 'identity_database_migration_url' not in data:
+                data['identity_database_migration_url'] = data.get('SQLCONNSTR_IDENTITY_DATABASE_MIGRATION_URL')
+        return data
+    
     model_config = SettingsConfigDict(
-        env_file=".env",  # Optional: load from .env file
+        env_file=".env" if os.path.exists(".env") else None,  # Only load .env if it exists (local dev)
         env_file_encoding="utf-8",
         case_sensitive=False,  # Allow both SECRET_TOKEN_KEY and secret_token_key
         extra="ignore",  # Ignore extra fields from env that aren't defined in Settings
