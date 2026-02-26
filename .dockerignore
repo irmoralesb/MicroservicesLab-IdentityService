@@ -1,10 +1,10 @@
 # Secrets and local env
 .env
 .env.*
-!.env_template
 
 # Version control and editor
 .git
+.github
 .gitignore
 .vscode
 .cursorignore
@@ -36,11 +36,24 @@ TODO.md
 *.md
 !README.md
 
+# Documentation and guides
+Documentation/
+AZURE_DEPLOYMENT_GUIDE.md
+QUICK_REFERENCE.md
+TEMPO_IMPLEMENTATION.md
+
 # Deployment scripts (not needed in production image)
 *.ps1
 docker-compose*.yml
-AZURE_DEPLOYMENT_GUIDE.md
-QUICK_REFERENCE.md
+Dockerfile
+
+# Database migrations (run separately, not in runtime image)
+alembic/
+alembic.ini
+run-migration.ps1
+
+# License (not needed in runtime)
+LICENSE
 
 # Plan and misc
 .cursor
