@@ -4,7 +4,6 @@ import logging
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi.responses import JSONResponse
 from domain.exceptions.auth_errors import (
     MissingPermissionError,
@@ -17,13 +16,10 @@ from domain.exceptions.permission_errors import (
 )
 from domain.exceptions.roles_errors import ServiceNotAssignedToUserError
 from application.routers import auth_router, user_profile_router, role_router, service_router, permission_router, user_service_router
-from infrastructure.observability.logging.loki_handler import (
-    setup_loki_handler,
+from infrastructure.observability.logging.azure_log_handler import (
+    setup_azure_log_handler,
     get_structured_logger,
 )
-from infrastructure.observability.tracing.tempo import setup_tempo_tracer
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
 load_dotenv()
 
@@ -114,124 +110,43 @@ async def service_not_assigned_exception_handler(request, exc: ServiceNotAssigne
     )
 
 
-# Prometheus metrics configuration
-METRICS_ENABLED = app_settings.metrics_enabled
-METRICS_ENDPOINT = app_settings.metrics_endpoint
+# Azure Monitor / Application Insights configuration
+AZURE_MONITOR_ENABLED = app_settings.azure_monitor_enabled
 
-# Initialize Prometheus instrumentation with configuration
-# This automatically tracks HTTP requests, response times, and status codes
-if METRICS_ENABLED:
+if AZURE_MONITOR_ENABLED and app_settings.applicationinsights_connection_string:
     try:
-        instrumentator = Instrumentator(
-            should_group_status_codes=True,  # Group 2xx, 3xx, 4xx, 5xx
-            should_ignore_untemplated=True,  # Ignore requests without a route
-            should_respect_env_var=True,
-            should_instrument_requests_inprogress=True,
-            # Don't track admin/metrics endpoints
-            excluded_handlers=[".*admin.*", "/metrics"],
-            env_var_name="METRICS_ENABLED",
-            inprogress_name="http_requests_inprogress",
-            inprogress_labels=True,
+        from azure.monitor.opentelemetry import configure_azure_monitor
+
+        configure_azure_monitor(
+            connection_string=app_settings.applicationinsights_connection_string,
+            logger_name="",  # Capture root logger
+            enable_live_metrics=True,
         )
 
-        instrumentator.instrument(app).expose(app, endpoint=METRICS_ENDPOINT)
-        logger.info(f"Prometheus metrics enabled at {METRICS_ENDPOINT}")
-    except Exception as e:
-        logger.error(f"Failed to initialize Prometheus metrics: {e}")
-else:
-    logger.info("Prometheus metrics disabled")
+        # Set up structured logging level for Azure export
+        setup_azure_log_handler(log_level=app_settings.azure_monitor_log_level)
 
-
-# Loki logging configuration
-LOKI_ENABLED = app_settings.loki_enabled
-
-if LOKI_ENABLED:
-    try:
-        # Parse labels from comma-separated string
-        loki_labels = {}
-        for label_pair in app_settings.loki_labels.split(","):
-            if "=" in label_pair:
-                key, value = label_pair.split("=", 1)
-                loki_labels[key.strip()] = value.strip()
-        
-        # Setup Loki handler
-        loki_handler = setup_loki_handler(
-            loki_url=app_settings.loki_url,
-            labels=loki_labels,
-            log_level=app_settings.min_log_level_for_loki,
-            batch_interval=app_settings.loki_batch_interval,
-            timeout=app_settings.loki_timeout,
-        )
-        
-        # Add Loki handler to root logger to capture all logs
-        root_logger = logging.getLogger()
-        root_logger.addHandler(loki_handler)
-        
         logger.info(
-            f"Loki logging enabled at {app_settings.loki_url} "
-            f"with labels: {loki_labels}"
+            "Azure Monitor observability enabled "
+            f"(sample_rate={app_settings.azure_monitor_sample_rate})"
         )
-        
+
         # Log application startup event
         startup_logger = get_structured_logger("startup")
         startup_logger.info(
-            "Identity Service started",
+            "Identity Service started with Azure Monitor",
             extra={
                 "event_type": "application_startup",
-                "service_id": app_settings.service_id,
+                "service_id": str(app_settings.service_id),
                 "log_level": LOG_LEVEL,
-                "metrics_enabled": METRICS_ENABLED,
-                "loki_enabled": True,
-            }
+                "azure_monitor_enabled": True,
+            },
         )
-        
+
     except Exception as e:
-        logger.error(f"Failed to initialize Loki logging: {e}", exc_info=True)
+        logger.error(f"Failed to initialize Azure Monitor: {e}", exc_info=True)
 else:
-    logger.info("Loki logging disabled")
-
-
-# Tempo tracing configuration
-TRACING_ENABLED = app_settings.tracing_enabled
-
-if TRACING_ENABLED:
-    try:
-        # Setup Tempo tracer
-        tracer_provider = setup_tempo_tracer(
-            endpoint=app_settings.tempo_endpoint,
-            service_name=app_settings.service_id,
-            sample_rate=app_settings.trace_sample_rate,
-            enable_console_export=app_settings.enable_trace_console_export,
-        )
-        
-        # Instrument FastAPI automatically
-        FastAPIInstrumentor.instrument_app(app)
-        
-        # Instrument SQLAlchemy for database tracing
-        from infrastructure.databases.database import engine
-        SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
-        
-        logger.info(
-            f"Tempo tracing enabled at {app_settings.tempo_endpoint} "
-            f"(sample_rate={app_settings.trace_sample_rate})"
-        )
-        
-        # Log tracing startup event
-        startup_logger = get_structured_logger("startup")
-        startup_logger.info(
-            "Distributed tracing initialized",
-            extra={
-                "event_type": "tracing_startup",
-                "service_name": app_settings.service_id,
-                "tempo_endpoint": app_settings.tempo_endpoint,
-                "sample_rate": app_settings.trace_sample_rate,
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize Tempo tracing: {e}", exc_info=True)
-else:
-    logger.info("Tempo tracing disabled")
+    logger.info("Azure Monitor disabled or connection string not set")
 
 
 app.include_router(auth_router.router)

@@ -4,12 +4,12 @@ from domain.exceptions.auth_errors import AccountLockedError
 from core.security import get_bcrypt_context
 from datetime import datetime, timedelta, timezone
 from infrastructure.observability.metrics.decorators import track_authentication, track_security_event
-from infrastructure.observability.metrics.prometheus import record_security_event
+from infrastructure.observability.metrics.azure_metrics import record_security_event
 from infrastructure.observability.logging.decorators import (
     log_authentication,
     log_security_event_decorator,
 )
-from infrastructure.observability.logging.loki_handler import (
+from infrastructure.observability.logging.azure_log_handler import (
     get_structured_logger,
     log_security_event,
 )

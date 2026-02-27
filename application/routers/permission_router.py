@@ -24,7 +24,7 @@ from domain.exceptions.permission_errors import (
     PermissionUnassignError,
 )
 from domain.exceptions.services_errors import ServiceNotFoundError
-from infrastructure.observability.logging.loki_handler import get_structured_logger
+from infrastructure.observability.logging.azure_log_handler import get_structured_logger
 
 logger = get_structured_logger(__name__)
 
