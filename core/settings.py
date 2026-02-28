@@ -45,12 +45,6 @@ class Settings(BaseSettings):
         description="Database connection URL for migrations (admin user)",
     )
     
-    # User Role Configuration
-    default_user_role: str = Field(
-        min_length=1,
-        description="Default role assigned to new users",
-    )
-    
     # CORS Configuration
     cors_allow_origins: str = Field(
         default="*",
@@ -102,8 +96,79 @@ class Settings(BaseSettings):
         description="Id of this microservice for RBAC scoping and tracing"
     )
     
+    @model_validator(mode='before')
+    @classmethod
+    def handle_azure_connection_strings(cls, data):
+        """
+        Handle Azure App Service connection string naming convention.
+        Azure automatically prepends 'SQLCONNSTR_' to connection string settings.
+        This validator aggressively checks OS environment for all required variables.
+        """
+        if not isinstance(data, dict):
+            data = {}
+        
+        # Get all environment variables directly from OS
+        import sys
+        env_vars = dict(os.environ)
+        
+        # Create a case-insensitive lookup for environment variables
+        env_lower = {k.lower(): (k, v) for k, v in env_vars.items()}
+        
+        # Debug output - print to stdout so it appears in Docker logs
+        print("=" * 80, flush=True)
+        print("DEBUG: All environment variables:", list(env_vars.keys()), flush=True)
+        print("DEBUG: Current data dict keys:", list(data.keys()), flush=True)
+        print("=" * 80, flush=True)
+        
+        # Mapping of field names to possible environment variable names
+        field_mappings = {
+            'identity_database_url': [
+                'IDENTITY_DATABASE_URL',
+                'SQLAZURECONNSTR_IDENTITY_DATABASE_URL',  # Azure SQL connection strings
+                'SQLCONNSTR_IDENTITY_DATABASE_URL',
+                'identity_database_url',
+                'sqlazureconnstr_identity_database_url',
+                'sqlconnstr_identity_database_url'
+            ],
+            'identity_database_migration_url': [
+                'IDENTITY_DATABASE_MIGRATION_URL',
+                'SQLAZURECONNSTR_IDENTITY_DATABASE_MIGRATION_URL',  # Azure SQL connection strings
+                'SQLCONNSTR_IDENTITY_DATABASE_MIGRATION_URL',
+                'identity_database_migration_url',
+                'sqlazureconnstr_identity_database_migration_url',
+                'sqlconnstr_identity_database_migration_url'
+            ],
+            'secret_token_key': [
+                'SECRET_TOKEN_KEY',
+                'secret_token_key',
+                'SQLCONNSTR_SECRET_TOKEN_KEY',  # In case they put it in connection strings
+                'sqlconnstr_secret_token_key'
+            ]
+        }
+        
+        # Try to find and set each required field
+        for field_name, possible_names in field_mappings.items():
+            if field_name not in data or not data.get(field_name):
+                for env_name in possible_names:
+                    if env_name in env_vars:
+                        data[field_name] = env_vars[env_name]
+                        print(f"DEBUG: Mapped {env_name} -> {field_name}", flush=True)
+                        break
+                    # Also try case-insensitive lookup
+                    elif env_name.lower() in env_lower:
+                        original_key, value = env_lower[env_name.lower()]
+                        data[field_name] = value
+                        print(f"DEBUG: Mapped {original_key} -> {field_name} (case-insensitive)", flush=True)
+                        break
+        
+        print("DEBUG: Final data dict keys after mapping:", list(data.keys()), flush=True)
+        print("=" * 80, flush=True)
+        
+        return data
+
+
     model_config = SettingsConfigDict(
-        env_file=".env",  # Optional: load from .env file
+        env_file=".env" if os.path.exists(".env") else None,  # Optional: load from .env file
         env_file_encoding="utf-8",
         case_sensitive=False,  # Allow both SECRET_TOKEN_KEY and secret_token_key
         extra="ignore",  # Ignore extra fields from env that aren't defined in Settings
