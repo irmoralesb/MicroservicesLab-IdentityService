@@ -121,6 +121,7 @@ if AZURE_MONITOR_ENABLED and app_settings.applicationinsights_connection_string:
             connection_string=app_settings.applicationinsights_connection_string,
             logger_name="",  # Capture root logger
             enable_live_metrics=True,
+            sampling_ratio=app_settings.azure_monitor_sample_rate,
         )
 
         # Set up structured logging level for Azure export
