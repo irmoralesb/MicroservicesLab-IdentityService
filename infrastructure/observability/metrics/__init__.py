@@ -1,4 +1,4 @@
 """
-Monitoring module — OpenTelemetry metrics exported to Azure Monitor.
+Monitoring module for Prometheus metrics.
 This centralizes all metrics definitions to avoid duplication.
 """

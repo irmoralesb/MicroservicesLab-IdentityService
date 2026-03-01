@@ -63,26 +63,64 @@ class Settings(BaseSettings):
         description="Application log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     
-    # Azure Monitor / Application Insights Configuration
-    applicationinsights_connection_string: str = Field(
-        default="",
-        description="Application Insights connection string from Azure Portal",
-    )
-    azure_monitor_enabled: bool = Field(
+    # Loki Logging Configuration
+    loki_enabled: bool = Field(
         default=True,
-        description="Enable Azure Monitor observability (Application Insights + Log Analytics)",
+        description="Enable Loki centralized logging",
     )
-    azure_monitor_sample_rate: float = Field(
-        default=1.0,
-        description="Trace sampling rate (0.0 to 1.0, where 1.0 means 100%)",
-        ge=0.0,
-        le=1.0,
+    loki_url: str = Field(
+        default="http://localhost:3100",
+        description="Loki push endpoint URL",
     )
-    azure_monitor_log_level: str = Field(
+    loki_labels: str = Field(
+        default="service=identity-service,environment=development",
+        description="Default Loki labels (comma-separated key=value pairs)",
+    )
+    structured_logging_enabled: bool = Field(
+        default=True,
+        description="Enable structured JSON logging with rich context",
+    )
+    loki_batch_interval: int = Field(
+        default=60,
+        description="Loki batch push interval in seconds",
+        gt=0,
+    )
+    loki_timeout: float = Field(
+        default=10.0,
+        description="Loki push request timeout in seconds",
+        gt=0,
+    )
+    min_log_level_for_loki: str = Field(
         default="INFO",
-        description="Minimum log level exported to Azure Monitor (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+        description="Minimum log level to send to Loki (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-
+    
+    # Metrics Configuration
+    metrics_enabled: bool = Field(
+        default=True,
+        description="Enable metrics collection",
+    )
+    metrics_endpoint: str = Field(
+        default="/metrics",
+        description="Metrics endpoint path",
+    )
+    enable_http_metrics: bool = Field(
+        default=True,
+        description="Enable HTTP request/response metrics",
+    )
+    enable_business_metrics: bool = Field(
+        default=True,
+        description="Enable business logic metrics",
+    )
+    enable_database_metrics: bool = Field(
+        default=True,
+        description="Enable database operation metrics",
+    )
+    metrics_collection_interval: int = Field(
+        default=60,
+        description="Metrics collection interval in seconds",
+        gt=0,
+    )
     token_url: str = Field(
         description="This is the token URL, for instance /token"
     )
@@ -95,6 +133,26 @@ class Settings(BaseSettings):
     lockout_duration_in_minutes: int =Field(
         default=60,
         description="Lockout duration after max number of failed password atteps was reached"
+    )
+
+    # Tracing Configuration
+    tracing_enabled: bool = Field(
+        default=True,
+        description="Enable distributed tracing with OpenTelemetry",
+    )
+    tempo_endpoint: str = Field(
+        default="http://localhost:4317",
+        description="Tempo OTLP gRPC endpoint URL",
+    )
+    trace_sample_rate: float = Field(
+        default=1.0,
+        description="Trace sampling rate (0.0 to 1.0, where 1.0 means 100%)",
+        ge=0.0,
+        le=1.0,
+    )
+    enable_trace_console_export: bool = Field(
+        default=False,
+        description="Enable console export of traces for debugging",
     )
 
     # Service Configuration

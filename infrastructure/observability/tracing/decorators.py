@@ -26,7 +26,9 @@ from functools import wraps
 from typing import Any, Callable
 from uuid import UUID
 
-from infrastructure.observability.tracing.azure_monitor import (
+from opentelemetry.trace import Status, StatusCode
+
+from infrastructure.observability.tracing.tempo import (
     get_tracer,
     enrich_authentication_span,
     enrich_authorization_span,

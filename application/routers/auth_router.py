@@ -13,7 +13,7 @@ from domain.exceptions.auth_errors import (
     PasswordChangeError
 )
 from core.password_validator import PasswordValidationError
-from infrastructure.observability.logging.azure_log_handler import get_structured_logger
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 
 logger = get_structured_logger(__name__)
 
