@@ -1,4 +1,5 @@
-"""Decorator functions for automatic metrics instrumentation via Azure Monitor.
+"""
+Decorator functions for automatic Prometheus metrics instrumentation.
 These decorators provide a clean, DRY approach to metrics collection.
 """
 from functools import wraps
@@ -6,7 +7,7 @@ import time
 from typing import Callable, Any
 from datetime import timedelta
 from domain.exceptions.auth_errors import AccountLockedError, PasswordChangeError
-from infrastructure.observability.metrics.azure_metrics import (
+from infrastructure.observability.metrics.prometheus import (
     record_authentication_metrics,
     record_security_event,
     record_user_operation_metrics,

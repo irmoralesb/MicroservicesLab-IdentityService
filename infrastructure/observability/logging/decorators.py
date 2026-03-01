@@ -14,7 +14,7 @@ from functools import wraps
 from typing import Any, Callable
 from uuid import UUID
 
-from infrastructure.observability.logging.azure_log_handler import (
+from infrastructure.observability.logging.loki_handler import (
     get_structured_logger,
     log_authentication_event,
     log_authorization_check,

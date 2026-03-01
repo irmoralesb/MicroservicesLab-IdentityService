@@ -1,15 +1,12 @@
 """
-Azure Monitor logging handler and structured logging utilities.
+Loki logging handler and structured logging utilities.
 
-This module provides centralized logging configuration for Azure Monitor
-(Application Insights / Log Analytics).  The ``configure_azure_monitor``
-distro automatically captures Python ``logging`` records and exports them
-to Application Insights, so the helpers here simply emit log records with
-rich structured context — no custom handler wiring is needed.
+This module provides centralized Loki handler configuration, structured logger
+factory functions, and helper functions for logging domain-specific events with
+rich context metadata.
 
-Pattern: Follows the same centralized definition pattern as the former
-loki_handler.py to avoid duplication and ensure consistent logging across
-the application.
+Pattern: Follows the same centralized definition pattern as prometheus.py to
+avoid duplication and ensure consistent logging across the application.
 """
 
 import logging
@@ -18,30 +15,62 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+import logging_loki
+
 # Module logger for internal errors
 _internal_logger = logging.getLogger(__name__)
 
 
-def setup_azure_log_handler(
+def setup_loki_handler(
+    loki_url: str,
+    labels: dict[str, str],
     log_level: str = "INFO",
-) -> None:
+    batch_interval: int = 60,
+    timeout: float = 10.0,
+) -> logging_loki.LokiHandler:
     """
-    Configure the root logger level for Azure Monitor export.
-
-    The actual Azure Monitor exporter is wired by ``configure_azure_monitor``
-    in ``main.py``.  This helper exists to keep the initialisation interface
-    consistent with the rest of the application.
+    Configure and return a Loki handler for structured logging.
 
     Args:
-        log_level: Minimum log level to capture (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        loki_url: Loki push endpoint URL (e.g., http://localhost:3100/loki/api/v1/push)
+        labels: Base labels to attach to all logs (e.g., {'service': 'identity-api', 'environment': 'prod'})
+        log_level: Minimum log level to send to Loki (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        batch_interval: Seconds between batch pushes to Loki (default: 60)
+        timeout: Request timeout for Loki push operations (default: 10.0)
+
+    Returns:
+        Configured LokiHandler instance
+
+    Example:
+        >>> handler = setup_loki_handler(
+        ...     loki_url="http://localhost:3100/loki/api/v1/push",
+        ...     labels={"service": "identity-api", "environment": "production"},
+        ...     log_level="INFO",
+        ... )
+        >>> logger.addHandler(handler)
     """
-    root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    # Ensure URL has correct path
+    if not loki_url.endswith("/loki/api/v1/push"):
+        loki_url = loki_url.rstrip("/") + "/loki/api/v1/push"
+
+    # Add system context to labels
+    enriched_labels = {
+        **labels,
+        "hostname": socket.gethostname(),
+    }
+
+    handler = logging_loki.LokiHandler(
+        url=loki_url,
+        tags=enriched_labels,
+        version="1",  # Use Loki v1 push API
+    )
+
+    handler.setLevel(getattr(logging, log_level.upper()))
+
+    return handler
 
 
-def get_structured_logger(
-    name: str, extra_labels: dict[str, str] | None = None
-) -> logging.Logger:
+def get_structured_logger(name: str, extra_labels: dict[str, str] | None = None) -> logging.Logger:
     """
     Get a logger instance configured for structured logging with optional custom labels.
 
@@ -51,9 +80,14 @@ def get_structured_logger(
 
     Returns:
         Logger instance with structured logging capabilities
+
+    Example:
+        >>> logger = get_structured_logger("auth", {"component": "authentication"})
+        >>> logger.info("User logged in", extra={"user_id": "123", "auth_type": "password"})
     """
     logger = logging.getLogger(name)
 
+    # Store extra labels in logger for future reference
     if extra_labels:
         if not hasattr(logger, "extra_labels"):
             logger.extra_labels = {}  # type: ignore
@@ -75,6 +109,12 @@ def enrich_log_context(
 
     Returns:
         Enriched context dictionary with proper type conversions
+
+    Note:
+        - UUID objects are converted to strings
+        - datetime objects are converted to ISO format
+        - None values are preserved
+        - All other values are converted to strings
     """
     enriched = {**base_context}
 
@@ -118,6 +158,8 @@ def log_authentication_event(
         email: User email (masked for privacy)
         failure_reason: Reason for failure if status is 'failure'
         duration_seconds: Time taken for authentication operation
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"Authentication {status}: {auth_type}"
@@ -164,6 +206,8 @@ def log_user_operation(
         target_user_id: ID of user being operated on
         duration_seconds: Time taken for operation
         error_message: Error message if operation failed
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"User operation {status}: {operation_type}"
@@ -210,6 +254,8 @@ def log_password_operation(
         is_security_event: Whether this is a security-relevant event
         duration_seconds: Time taken for operation
         error_message: Error message if operation failed
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"Password operation {status}: {operation_type}"
@@ -261,6 +307,8 @@ def log_token_operation(
         expires_in_seconds: Token expiration time in seconds
         duration_seconds: Time taken for operation
         error_message: Error message if operation failed
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"Token operation {status}: {operation_type} ({token_type})"
@@ -305,6 +353,8 @@ def log_security_event(
         severity: Severity level ('low', 'medium', 'high', 'critical')
         user_id: ID of user involved in the security event
         details: Additional event-specific details
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"Security event [{severity.upper()}]: {event_type}"
@@ -354,6 +404,8 @@ def log_database_operation(
         duration_seconds: Time taken for operation
         record_count: Number of records affected/returned
         error_message: Error message if operation failed
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         message = f"Database operation {status}: {operation_type} ({entity_type})"
@@ -400,6 +452,8 @@ def log_authorization_check(
         is_authorized: Whether authorization succeeded
         resource: Resource being accessed (optional)
         duration_seconds: Time taken for authorization check
+
+    Pattern: Wraps in try-except to prevent logging failures from breaking business logic.
     """
     try:
         status = "granted" if is_authorized else "denied"
@@ -441,6 +495,10 @@ def _mask_email(email: str) -> str:
 
     Returns:
         Masked email (e.g., j***@example.com)
+
+    Example:
+        >>> _mask_email("john.doe@example.com")
+        'j***@example.com'
     """
     if "@" not in email:
         return "***"

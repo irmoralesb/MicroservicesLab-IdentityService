@@ -6,10 +6,10 @@
 # All configuration is validated on startup, providing "fail-fast" behavior.
 # """
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import timedelta
-from typing import Optional
+from typing import Any, Optional
 import os
 import uuid
 
@@ -38,11 +38,44 @@ class Settings(BaseSettings):
     )
     
     # Database Configuration
+    # Standard env: IDENTITY_DATABASE_URL / IDENTITY_DATABASE_MIGRATION_URL.
+    # Azure Connection strings are exposed as SQLCONNSTR_*, SQLAZURECONNSTR_*, CUSTOMCONNSTR_* (see model_validator below).
     identity_database_url: str = Field(
         description="Database connection URL for application user",
     )
     identity_database_migration_url: str = Field(
         description="Database connection URL for migrations (admin user)",
+    )
+    
+    @model_validator(mode="before")
+    @classmethod
+    def read_azure_connection_strings(cls, data: Any) -> Any:
+        """Inject database URLs from Azure App Service connection string env vars when standard names are missing."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        prefixes = ("SQLCONNSTR_", "SQLAZURECONNSTR_", "CUSTOMCONNSTR_")
+        # (field_name, env name variants to check)
+        for field_name, env_bases in (
+            ("identity_database_url", ("IDENTITY_DATABASE_URL", "IdentityDatabaseUrl")),
+            ("identity_database_migration_url", ("IDENTITY_DATABASE_MIGRATION_URL", "IdentityDatabaseMigrationUrl")),
+        ):
+            if out.get(field_name):
+                continue
+            for prefix in prefixes:
+                for base in env_bases:
+                    val = os.environ.get(prefix + base)
+                    if val:
+                        out[field_name] = val
+                        break
+                if out.get(field_name):
+                    break
+        return out
+    
+    # User Role Configuration
+    default_user_role: str = Field(
+        min_length=1,
+        description="Default role assigned to new users",
     )
     
     # CORS Configuration
@@ -57,26 +90,64 @@ class Settings(BaseSettings):
         description="Application log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     
-    # Azure Monitor / Application Insights Configuration
-    applicationinsights_connection_string: str = Field(
-        default="",
-        description="Application Insights connection string from Azure Portal",
+    # Loki Logging Configuration
+    loki_enabled: bool = Field(
+        default=False,
+        description="Enable Loki centralized logging",
     )
-    azure_monitor_enabled: bool = Field(
+    loki_url: str = Field(
+        default="http://localhost:3100",
+        description="Loki push endpoint URL",
+    )
+    loki_labels: str = Field(
+        default="service=identity-service,environment=development",
+        description="Default Loki labels (comma-separated key=value pairs)",
+    )
+    structured_logging_enabled: bool = Field(
         default=True,
-        description="Enable Azure Monitor observability (Application Insights + Log Analytics)",
+        description="Enable structured JSON logging with rich context",
     )
-    azure_monitor_sample_rate: float = Field(
-        default=1.0,
-        description="Trace sampling rate (0.0 to 1.0, where 1.0 means 100%)",
-        ge=0.0,
-        le=1.0,
+    loki_batch_interval: int = Field(
+        default=60,
+        description="Loki batch push interval in seconds",
+        gt=0,
     )
-    azure_monitor_log_level: str = Field(
+    loki_timeout: float = Field(
+        default=10.0,
+        description="Loki push request timeout in seconds",
+        gt=0,
+    )
+    min_log_level_for_loki: str = Field(
         default="INFO",
-        description="Minimum log level exported to Azure Monitor (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+        description="Minimum log level to send to Loki (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
-
+    
+    # Metrics Configuration
+    metrics_enabled: bool = Field(
+        default=False,
+        description="Enable metrics collection",
+    )
+    metrics_endpoint: str = Field(
+        default="/metrics",
+        description="Metrics endpoint path",
+    )
+    enable_http_metrics: bool = Field(
+        default=True,
+        description="Enable HTTP request/response metrics",
+    )
+    enable_business_metrics: bool = Field(
+        default=True,
+        description="Enable business logic metrics",
+    )
+    enable_database_metrics: bool = Field(
+        default=True,
+        description="Enable database operation metrics",
+    )
+    metrics_collection_interval: int = Field(
+        default=60,
+        description="Metrics collection interval in seconds",
+        gt=0,
+    )
     token_url: str = Field(
         description="This is the token URL, for instance /token"
     )
@@ -91,85 +162,34 @@ class Settings(BaseSettings):
         description="Lockout duration after max number of failed password atteps was reached"
     )
 
+    # Tracing Configuration
+    tracing_enabled: bool = Field(
+        default=False,
+        description="Enable distributed tracing with OpenTelemetry",
+    )
+    tempo_endpoint: str = Field(
+        default="http://localhost:4317",
+        description="Tempo OTLP gRPC endpoint URL",
+    )
+    trace_sample_rate: float = Field(
+        default=1.0,
+        description="Trace sampling rate (0.0 to 1.0, where 1.0 means 100%)",
+        ge=0.0,
+        le=1.0,
+    )
+    enable_trace_console_export: bool = Field(
+        default=False,
+        description="Enable console export of traces for debugging",
+    )
+
     # Service Configuration
     service_id: uuid.UUID = Field(
         description="Id of this microservice for RBAC scoping and tracing"
     )
     
-    @model_validator(mode='before')
-    @classmethod
-    def handle_azure_connection_strings(cls, data):
-        """
-        Handle Azure App Service connection string naming convention.
-        Azure automatically prepends 'SQLCONNSTR_' to connection string settings.
-        This validator aggressively checks OS environment for all required variables.
-        """
-        if not isinstance(data, dict):
-            data = {}
-        
-        # Get all environment variables directly from OS
-        import sys
-        env_vars = dict(os.environ)
-        
-        # Create a case-insensitive lookup for environment variables
-        env_lower = {k.lower(): (k, v) for k, v in env_vars.items()}
-        
-        # Debug output - print to stdout so it appears in Docker logs
-        print("=" * 80, flush=True)
-        print("DEBUG: All environment variables:", list(env_vars.keys()), flush=True)
-        print("DEBUG: Current data dict keys:", list(data.keys()), flush=True)
-        print("=" * 80, flush=True)
-        
-        # Mapping of field names to possible environment variable names
-        field_mappings = {
-            'identity_database_url': [
-                'IDENTITY_DATABASE_URL',
-                'SQLAZURECONNSTR_IDENTITY_DATABASE_URL',  # Azure SQL connection strings
-                'SQLCONNSTR_IDENTITY_DATABASE_URL',
-                'identity_database_url',
-                'sqlazureconnstr_identity_database_url',
-                'sqlconnstr_identity_database_url'
-            ],
-            'identity_database_migration_url': [
-                'IDENTITY_DATABASE_MIGRATION_URL',
-                'SQLAZURECONNSTR_IDENTITY_DATABASE_MIGRATION_URL',  # Azure SQL connection strings
-                'SQLCONNSTR_IDENTITY_DATABASE_MIGRATION_URL',
-                'identity_database_migration_url',
-                'sqlazureconnstr_identity_database_migration_url',
-                'sqlconnstr_identity_database_migration_url'
-            ],
-            'secret_token_key': [
-                'SECRET_TOKEN_KEY',
-                'secret_token_key',
-                'SQLCONNSTR_SECRET_TOKEN_KEY',  # In case they put it in connection strings
-                'sqlconnstr_secret_token_key'
-            ]
-        }
-        
-        # Try to find and set each required field
-        for field_name, possible_names in field_mappings.items():
-            if field_name not in data or not data.get(field_name):
-                for env_name in possible_names:
-                    if env_name in env_vars:
-                        data[field_name] = env_vars[env_name]
-                        print(f"DEBUG: Mapped {env_name} -> {field_name}", flush=True)
-                        break
-                    # Also try case-insensitive lookup
-                    elif env_name.lower() in env_lower:
-                        original_key, value = env_lower[env_name.lower()]
-                        data[field_name] = value
-                        print(f"DEBUG: Mapped {original_key} -> {field_name} (case-insensitive)", flush=True)
-                        break
-        
-        print("DEBUG: Final data dict keys after mapping:", list(data.keys()), flush=True)
-        print("=" * 80, flush=True)
-        
-        return data
-
-
     model_config = SettingsConfigDict(
-        env_file=".env" if os.path.exists(".env") else None,  # Optional: load from .env file
-        env_file_encoding="utf-8",
+        # No env_file: config comes only from environment variables, so .env is not required (e.g. Azure, Docker).
+        # For local dev, call load_dotenv() in the app entrypoint (main.py) before importing settings.
         case_sensitive=False,  # Allow both SECRET_TOKEN_KEY and secret_token_key
         extra="ignore",  # Ignore extra fields from env that aren't defined in Settings
     )

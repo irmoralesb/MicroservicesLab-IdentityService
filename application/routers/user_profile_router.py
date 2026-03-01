@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from application.schemas.user_profile_schema import UserProfileResponse, UpdateProfileRequest
-from infrastructure.observability.logging.azure_log_handler import get_structured_logger
+from infrastructure.observability.logging.loki_handler import get_structured_logger
 from application.routers.dependency_utils import (
     AuthzSvcDep,
     CurrentUserDep,
