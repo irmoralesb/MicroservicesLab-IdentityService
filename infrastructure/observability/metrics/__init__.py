@@ -1,4 +1,5 @@
 """
-Monitoring module for Prometheus metrics.
-This centralizes all metrics definitions to avoid duplication.
+Metrics module for Azure Monitor (Application Insights).
+
+Centralized metric definitions and record_* helpers; export via OpenTelemetry.
 """

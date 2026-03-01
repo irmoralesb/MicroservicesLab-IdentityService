@@ -10,7 +10,7 @@ from application.routers.dependency_utils import (
 )
 from application.schemas.service_schema import ServiceCreateRequest, ServiceResponse
 from domain.exceptions.services_errors import ServiceCreationError, ServiceNotFoundError
-from infrastructure.observability.logging.loki_handler import get_structured_logger
+from infrastructure.observability.logging.azure_handler import get_structured_logger
 
 logger = get_structured_logger(__name__)
 

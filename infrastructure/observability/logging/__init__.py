@@ -1,6 +1,6 @@
 """
-Logging module for centralized log aggregation with Grafana Loki.
+Logging module for Azure Monitor (Application Insights).
 
-This module provides structured logging capabilities with automatic
-integration to Loki for centralized log management and querying.
+This module provides structured logging with integration to Azure Monitor
+for centralized log management and querying.
 """

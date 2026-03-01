@@ -7,14 +7,14 @@ import time
 from typing import Callable, Any
 from datetime import timedelta
 from domain.exceptions.auth_errors import AccountLockedError, PasswordChangeError
-from infrastructure.observability.metrics.prometheus import (
+from infrastructure.observability.metrics.azure_metrics import (
     record_authentication_metrics,
     record_security_event,
     record_user_operation_metrics,
     record_password_operation_metrics,
     record_token_metrics,
     record_database_metrics,
-    record_permission_check_metrics
+    record_permission_check_metrics,
 )
 
 
