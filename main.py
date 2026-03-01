@@ -1,6 +1,11 @@
+# Optional: load .env into os.environ for local dev (no-op if file missing). Not required for Azure/Docker.
 from dotenv import load_dotenv
+load_dotenv()
+
+from contextlib import asynccontextmanager
 from core.settings import app_settings
 import logging
+import os
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,8 +30,6 @@ from infrastructure.observability.tracing.tempo import setup_tempo_tracer
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
-load_dotenv()
-
 # Configure logging from environment (default INFO)
 LOG_LEVEL = app_settings.log_level
 logging.basicConfig(
@@ -35,10 +38,60 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Verbose startup: log config and verify database connection."""
+    # --- Startup ---
+    logger.info("=" * 60)
+    logger.info("Identity Service starting (verbose startup)")
+    logger.info("=" * 60)
+
+    port = os.environ.get("WEBSITES_PORT") or os.environ.get("PORT") or "80"
+    logger.info("[Startup] Port (WEBSITES_PORT/PORT): %s", port)
+    logger.info("[Startup] Log level: %s", app_settings.log_level)
+    cors_preview = app_settings.cors_allow_origins[:80] + ("..." if len(app_settings.cors_allow_origins) > 80 else "")
+    logger.info("[Startup] CORS origins: %s", cors_preview)
+    logger.info("[Startup] Service ID: %s", app_settings.service_id)
+    logger.info("[Startup] Observability - Loki: %s, Metrics: %s, Tracing: %s",
+                "enabled" if app_settings.loki_enabled else "disabled",
+                "enabled" if app_settings.metrics_enabled else "disabled",
+                "enabled" if app_settings.tracing_enabled else "disabled")
+
+    # Mask DB URL for logs (show only scheme and host)
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(app_settings.identity_database_url)
+        db_display = f"{parsed.scheme}://{parsed.hostname or '(unknown)'}:{parsed.port or '(default)'}/..."
+        logger.info("[Startup] Database URL (masked): %s", db_display)
+    except Exception as e:
+        logger.warning("[Startup] Could not parse database URL for log: %s", e)
+
+    logger.info("[Startup] Testing database connection...")
+    try:
+        from sqlalchemy import text
+        from infrastructure.databases.database import engine
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("[Startup] Database connection: OK")
+    except Exception as e:
+        logger.error("[Startup] Database connection: FAILED - %s", e, exc_info=True)
+        raise
+
+    logger.info("[Startup] All startup checks passed. Ready to accept requests.")
+    logger.info("=" * 60)
+
+    yield
+
+    # --- Shutdown (optional) ---
+    logger.info("Identity Service shutting down.")
+
+
 app = FastAPI(
     title="Identity Service",
     description="Service to authenticate and authorize users",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -249,3 +302,11 @@ async def root():
     Root endpoint
     """
     return {"message": "Contact your Administrator to get access to the system"}
+
+
+@app.get("/health")
+async def health():
+    """
+    Health check endpoint for Azure App Service and load balancer probes.
+    """
+    return {"status": "ok"}

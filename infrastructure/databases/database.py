@@ -3,11 +3,8 @@ from contextlib import asynccontextmanager
 from core.settings import app_settings
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-load_dotenv()
 
 IDENTITY_DATABASE_URL = app_settings.identity_database_url
 if not IDENTITY_DATABASE_URL:

@@ -6,10 +6,10 @@
 # All configuration is validated on startup, providing "fail-fast" behavior.
 # """
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from datetime import timedelta
-from typing import Optional
+from typing import Any, Optional
 import os
 import uuid
 
@@ -38,12 +38,39 @@ class Settings(BaseSettings):
     )
     
     # Database Configuration
+    # Standard env: IDENTITY_DATABASE_URL / IDENTITY_DATABASE_MIGRATION_URL.
+    # Azure Connection strings are exposed as SQLCONNSTR_*, SQLAZURECONNSTR_*, CUSTOMCONNSTR_* (see model_validator below).
     identity_database_url: str = Field(
         description="Database connection URL for application user",
     )
     identity_database_migration_url: str = Field(
         description="Database connection URL for migrations (admin user)",
     )
+    
+    @model_validator(mode="before")
+    @classmethod
+    def read_azure_connection_strings(cls, data: Any) -> Any:
+        """Inject database URLs from Azure App Service connection string env vars when standard names are missing."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        prefixes = ("SQLCONNSTR_", "SQLAZURECONNSTR_", "CUSTOMCONNSTR_")
+        # (field_name, env name variants to check)
+        for field_name, env_bases in (
+            ("identity_database_url", ("IDENTITY_DATABASE_URL", "IdentityDatabaseUrl")),
+            ("identity_database_migration_url", ("IDENTITY_DATABASE_MIGRATION_URL", "IdentityDatabaseMigrationUrl")),
+        ):
+            if out.get(field_name):
+                continue
+            for prefix in prefixes:
+                for base in env_bases:
+                    val = os.environ.get(prefix + base)
+                    if val:
+                        out[field_name] = val
+                        break
+                if out.get(field_name):
+                    break
+        return out
     
     # User Role Configuration
     default_user_role: str = Field(
@@ -65,7 +92,7 @@ class Settings(BaseSettings):
     
     # Loki Logging Configuration
     loki_enabled: bool = Field(
-        default=True,
+        default=False,
         description="Enable Loki centralized logging",
     )
     loki_url: str = Field(
@@ -97,7 +124,7 @@ class Settings(BaseSettings):
     
     # Metrics Configuration
     metrics_enabled: bool = Field(
-        default=True,
+        default=False,
         description="Enable metrics collection",
     )
     metrics_endpoint: str = Field(
@@ -137,7 +164,7 @@ class Settings(BaseSettings):
 
     # Tracing Configuration
     tracing_enabled: bool = Field(
-        default=True,
+        default=False,
         description="Enable distributed tracing with OpenTelemetry",
     )
     tempo_endpoint: str = Field(
@@ -161,8 +188,8 @@ class Settings(BaseSettings):
     )
     
     model_config = SettingsConfigDict(
-        env_file=".env",  # Optional: load from .env file
-        env_file_encoding="utf-8",
+        # No env_file: config comes only from environment variables, so .env is not required (e.g. Azure, Docker).
+        # For local dev, call load_dotenv() in the app entrypoint (main.py) before importing settings.
         case_sensitive=False,  # Allow both SECRET_TOKEN_KEY and secret_token_key
         extra="ignore",  # Ignore extra fields from env that aren't defined in Settings
     )

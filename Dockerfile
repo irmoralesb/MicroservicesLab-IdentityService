@@ -2,8 +2,8 @@
 # Build: docker build -t identity-service:latest .
 # Run: pass IDENTITY_DATABASE_URL, SECRET_TOKEN_KEY, AUTH_ALGORITHM, TOKEN_TIME_DELTA_IN_MINUTES,
 #      DEFAULT_USER_ROLE, TOKEN_URL (and optional Loki/Tempo/metrics) via env or docker-compose.
-# Required env: IDENTITY_DATABASE_URL, IDENTITY_DATABASE_MIGRATION_URL, SECRET_TOKEN_KEY,
-# AUTH_ALGORITHM, TOKEN_TIME_DELTA_IN_MINUTES, DEFAULT_USER_ROLE, TOKEN_URL.
+# Listens on port 80 by default (Azure default). Required env: IDENTITY_DATABASE_URL, IDENTITY_DATABASE_MIGRATION_URL,
+# SECRET_TOKEN_KEY, AUTH_ALGORITHM, TOKEN_TIME_DELTA_IN_MINUTES, DEFAULT_USER_ROLE, TOKEN_URL, SERVICE_ID.
 
 FROM python:3.12-slim
 
@@ -36,11 +36,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Application code.
 COPY . .
 
-# Non-root user for production.
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+# Listen on port 80 by default so Azure App Service (which forwards to 80 by default) reaches the app.
+# Run as root so we can bind to port 80; Azure runs the container in an isolated environment.
+# To use a different port, set WEBSITES_PORT in App Service (e.g. WEBSITES_PORT=8000).
+EXPOSE 80
 
-EXPOSE 8001
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Trust Azure's reverse proxy headers so /docs and redirects use correct URL (https, host).
+CMD ["sh", "-c", "port=${WEBSITES_PORT:-${PORT:-80}} && echo \"Listening on port $port\" && exec uvicorn main:app --host 0.0.0.0 --port $port --proxy-headers --forwarded-allow-ips='*'"]
