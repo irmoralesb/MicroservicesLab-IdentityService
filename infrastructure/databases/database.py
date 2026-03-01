@@ -1,4 +1,7 @@
-from infrastructure.observability.metrics.prometheus import database_connections_activating, database_connections_deactivating
+from infrastructure.observability.metrics.azure_metrics import (
+    database_connections_activating,
+    database_connections_deactivating,
+)
 from contextlib import asynccontextmanager
 from core.settings import app_settings
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode

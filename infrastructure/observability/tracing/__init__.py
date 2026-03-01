@@ -1,21 +1,15 @@
 """
-OpenTelemetry distributed tracing module for Grafana Tempo integration.
+OpenTelemetry distributed tracing module for Azure Monitor (Application Insights).
 
-This module provides distributed tracing instrumentation following the same
-patterns established for Prometheus metrics and Loki logging.
+This module provides distributed tracing instrumentation with the same
+patterns as logging and metrics.
 
 Components:
 -----------
-- tempo.py: Tracer setup, configuration, and span enrichment helpers
+- azure_tracing.py: Tracer setup, configuration, and span enrichment helpers
 - decorators.py: Decorator functions for automatic span creation and instrumentation
-
-Pattern:
---------
-All tracing operations are wrapped in try-except blocks to prevent failures
-from breaking business logic. Feature flag allows enabling/disabling tracing
-without code changes.
 
 Usage:
 ------
-See infrastructure/observability/README.md for setup and configuration examples.
+See infrastructure/observability/README.md for setup and configuration.
 """

@@ -8,7 +8,7 @@ from application.routers.dependency_utils import (
     require_permission,
     require_role,
 )
-from infrastructure.observability.logging.loki_handler import get_structured_logger
+from infrastructure.observability.logging.azure_handler import get_structured_logger
 from application.schemas.user_service_schema import (
     UserServiceAssignRequest,
     UserServiceResponse,
